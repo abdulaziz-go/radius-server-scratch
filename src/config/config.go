@@ -11,15 +11,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type RedisConnectionConfig struct {
-	MaxNumber       int
-	OpenMinNumber   int
-	MaxLifetimeSec  int
-	MaxIdleTimeSec  int
-	DeleteBatchSize int
-	ResponseLimit   int
-}
-
 type DbConnectionConfig struct {
 	MaxNumber      int
 	OpenMaxNumber  int
@@ -35,45 +26,6 @@ type DbConfig struct {
 	Logger           bool
 }
 
-type ClickhouseConnectionConfig struct {
-	MaxNumber      int
-	OpenMaxNumber  int
-	MaxLifetimeSec int
-}
-type ClickhouseConfig struct {
-	Host             string
-	Port             int
-	DbName           string
-	Username         string
-	Password         string
-	BatchInsertSize  int
-	AutoRunMigration bool
-	Connection       ClickhouseConnectionConfig
-	MaxMemoryLimit   int64 // In GB
-}
-
-type ServerConfig struct {
-	Id   string
-	Port int
-	Host string
-}
-
-type SecurityConfig struct {
-	JwtKey            string
-	JwtLifetimeSec    int
-	BotJwtLifetimeSec int
-	XApiKey           string
-}
-
-type SwaggerConfig struct {
-	Title       string
-	Description string
-	Version     string
-	Host        string
-	BasePath    string
-	Enabled     bool
-}
-
 type CorsConfig struct {
 	Origins     string
 	Methods     string
@@ -81,46 +33,8 @@ type CorsConfig struct {
 	Credentials bool
 }
 
-type RedisConfig struct {
-	Host       string
-	Connection RedisConnectionConfig
-}
-
-type CacheConfig struct {
-	FlowLifetimeSec int
-}
-
-type WebsocketConfig struct {
-	HeartbeatPingTimeSec int
-	HeartbeatPongTimeSec int
-	Logger               bool
-}
-
-type CronConfig struct {
-	WebsocketStatsSchedule string
-	FlowMetricsSchedule    string
-}
-
-type CookieConfig struct {
-	Secure bool
-}
-
-type PrometheusConfig struct {
-	Address string
-	Points  int64
-}
-
-type FakeMetricsConfig struct {
-	DoFakeMetrics bool
-	MinApps       int
-	MaxApps       int
-	IpPool        string
-	MinIps        int
-	MaxIps        int
-	MinTotalBytes int
-	MaxTotalBytes int
-	MinFlows      int
-	MaxFlows      int
+type SecurityConfig struct {
+	XApiKey string
 }
 
 type Config struct {
@@ -130,9 +44,10 @@ type Config struct {
 	AppVersion string
 	IsDebug    bool
 	IsLocal    bool
+	ServerPort int
 	Database   DbConfig
-	Server     ServerConfig
 	Security   SecurityConfig
+	Cors       CorsConfig
 }
 
 var AppConfig *Config
@@ -141,15 +56,14 @@ func LoadConfig() {
 	if err := godotenv.Load(); err != nil {
 		logger.Logger.Fatal().Msgf("Loading .env file error. Error - %s", err.Error())
 	}
+
 	appName := getEnvAsString("APP_NAME", typeUtil.String("radius-server"))
 	appHost := getEnvAsString("APP_HOST", typeUtil.String(""))
 	appVersion := getEnvAsString("APP_VERSION", typeUtil.String("v1.0.0"))
 	appLang := getEnvAsString("APP_LANG", typeUtil.String("en"))
 	isDebug := getEnvAsBool("IS_DEBUG", typeUtil.Bool(true))
 	isLocal := getEnvAsBool("IS_LOCAL", typeUtil.Bool(true))
-
-	serverPort := getEnvAsInt("SERVER_PORT", typeUtil.Int(3000), nil, nil)
-	serverHost := getEnvAsString("SERVER_HOST", typeUtil.String(""))
+	serverPort := getEnvAsInt("HTTP_SERVER_PORT", typeUtil.Int(8080), typeUtil.Int(0), typeUtil.Int(6666665))
 
 	dbDns := getEnvAsString("DB_DNS", typeUtil.String("postgres://postgres:postgres@localhost:5532/postgres?sslmode=disable"))
 	dbConnectionMaxNumber := getEnvAsInt("DB_CONNECTION_MAX_NUMBER", typeUtil.Int(10), nil, nil)
@@ -160,9 +74,6 @@ func LoadConfig() {
 	dbAutoRunMigration := getEnvAsBool("DB_AUTO_RUN_MIGRATION", typeUtil.Bool(true))
 	dbLogger := getEnvAsBool("DB_LOGGER", typeUtil.Bool(true))
 
-	securityJwtKey := getEnvAsString("SECURITY_JWT_KEY", typeUtil.String(""))
-	securityJwtLifetimeSec := getEnvAsInt("SECURITY_JWT_LIFETIME_SEC", typeUtil.Int(86400), nil, nil)  // 24 * 60 * 60
-	botJwtLifetimeSec := getEnvAsInt("SECURITY_BOT_JWT_LIFETIME_SEC", typeUtil.Int(2592000), nil, nil) // 30 * 24 * 60 * 60
 	securityXApiKey := getEnvAsString("SECURITY_X_API_KEY", typeUtil.String(""))
 	if securityXApiKey == "" {
 		logger.Logger.Fatal().Msg("Security SECURITY_X_API_KEY  is required.")
@@ -175,7 +86,7 @@ func LoadConfig() {
 		AppLang:    appLang,
 		IsDebug:    isDebug,
 		IsLocal:    isLocal,
-
+		ServerPort: serverPort,
 		Database: DbConfig{
 			Dsn: dbDns,
 			Connection: DbConnectionConfig{
@@ -188,47 +99,17 @@ func LoadConfig() {
 			AutoRunMigration: dbAutoRunMigration,
 			Logger:           dbLogger,
 		},
-
-		Server: ServerConfig{
-			Port: serverPort,
-			Host: serverHost,
-		},
 		Security: SecurityConfig{
-			JwtKey:            securityJwtKey,
-			JwtLifetimeSec:    securityJwtLifetimeSec,
-			BotJwtLifetimeSec: botJwtLifetimeSec,
-			XApiKey:           securityXApiKey,
+			XApiKey: securityXApiKey,
+		},
+		Cors: CorsConfig{
+			Origins:     "*",
+			Methods:     "GET,POST,PUT,DELETE,OPTIONS",
+			Headers:     "Origin, Content-Type, Accept, Authorization",
+			Credentials: false,
 		},
 	}
-}
 
-type UserSeed struct {
-	Username string
-	Password string
-	Role     string
-}
-
-func parseUsersSeed(key string) []UserSeed {
-	value, exists := os.LookupEnv(key)
-	if !exists {
-		logger.Logger.Warn().Msg("Users seed is not set")
-		return []UserSeed{}
-	}
-	userEntries := strings.Split(value, ",")
-	var users []UserSeed
-	for _, userEntry := range userEntries {
-		userEntry = strings.TrimSpace(userEntry)
-		parts := strings.Split(userEntry, ":")
-		if len(parts) != 3 {
-			logger.Logger.Fatal().Msgf("Invalid user format in %s. Expected format: username:password:role, got: %s", key, userEntry)
-		}
-		users = append(users, UserSeed{
-			Username: strings.TrimSpace(parts[0]),
-			Password: strings.TrimSpace(parts[1]),
-			Role:     strings.TrimSpace(parts[2]),
-		})
-	}
-	return users
 }
 
 func getEnvAsString(key string, defaultValue *string) string {
@@ -236,6 +117,7 @@ func getEnvAsString(key string, defaultValue *string) string {
 	if !exists {
 		if defaultValue == nil {
 			logger.Logger.Fatal().Msgf("Required environment variable %s is not set", key)
+			return ""
 		}
 		return *defaultValue
 	}
@@ -274,6 +156,7 @@ func getEnvAsBool(key string, defaultValue *bool) bool {
 	if !exists {
 		if defaultValue == nil {
 			logger.Logger.Fatal().Msgf("Required environment variable %s is not set", key)
+			return false
 		}
 		return *defaultValue
 	}
@@ -289,6 +172,7 @@ func getEnvAsEnums[T ~string](key string, defaultValue *[]T, allowedValues []str
 	if !exists {
 		if defaultValue == nil {
 			logger.Logger.Fatal().Msgf("Required environment variable %s is not set", key)
+			return []T{}
 		}
 		return *defaultValue
 	}

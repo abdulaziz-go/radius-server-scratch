@@ -41,3 +41,13 @@ func getDb(tx *gorm.DB) *gorm.DB {
 	}
 	return db
 }
+
+func HealthCheck() bool {
+	sqlDB, err := DbConn.DB()
+	if err != nil {
+		return false
+	}
+
+	err = sqlDB.Ping()
+	return err == nil
+}
