@@ -1,3 +1,2 @@
 .env
-
-./docker/postgres/data
+docker/postgres/data/*
