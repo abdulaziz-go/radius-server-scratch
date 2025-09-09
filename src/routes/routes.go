@@ -4,6 +4,7 @@ import (
 	"radius-server/src/common/logger"
 	"radius-server/src/config"
 	apiModule "radius-server/src/modules/api"
+	metricsModule "radius-server/src/modules/metrics"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -25,6 +26,7 @@ func New() (*fiber.App, string) {
 
 	apiMethods := app.Group("/")
 	apiMethods.Get("/healthcheck", apiModule.HealthCheck)
+	apiMethods.Get("/metrics", metricsModule.GetMetrics)
 
 	return app, ":" + strconv.Itoa(config.AppConfig.ServerPort)
 }
