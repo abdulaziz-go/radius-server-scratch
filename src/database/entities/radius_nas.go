@@ -1,6 +1,8 @@
 package entities
 
-import "time"
+import (
+	"time"
+)
 
 const RadiusNasTable = "radius_nas"
 
@@ -15,4 +17,13 @@ type RadiusNas struct {
 
 func (RadiusNas) TableName() string {
 	return RadiusNasTable
+}
+
+func CreateNas(name *string, ipAddress, secret string, nasType *string) *RadiusNas {
+	return &RadiusNas{
+		NasName:   name,
+		IpAddress: ipAddress,
+		Secret:    secret,
+		NasType:   nasType,
+	}
 }

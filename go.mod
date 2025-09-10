@@ -3,6 +3,7 @@ module radius-server
 go 1.24.3
 
 require (
+	github.com/bxcodec/faker/v3 v3.8.1
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/joho/godotenv v1.5.1

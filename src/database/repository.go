@@ -51,3 +51,18 @@ func HealthCheck() bool {
 	err = sqlDB.Ping()
 	return err == nil
 }
+
+func CreateNas(tx *gorm.DB, nas *entities.RadiusNas) (*entities.RadiusNas, error) {
+	db := getDb(tx)
+	err := db.Create(nas).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return nas, nil
+}
+
+func DeleteNas(tx *gorm.DB, id int64) error {
+	db := getDb(tx)
+	return db.Where("id=?", id).Delete(&entities.RadiusNas{}).Error
+}

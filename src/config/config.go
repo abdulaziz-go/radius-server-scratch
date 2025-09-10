@@ -37,17 +37,24 @@ type SecurityConfig struct {
 	XApiKey string
 }
 
+type RadiusServerConfig struct {
+	AccessHandlerServerPort     int
+	AccountingHandlerServerPort int
+	CoaHandlerServerPort        int
+}
+
 type Config struct {
-	AppName    string
-	AppHost    string
-	AppLang    string
-	AppVersion string
-	IsDebug    bool
-	IsLocal    bool
-	ServerPort int
-	Database   DbConfig
-	Security   SecurityConfig
-	Cors       CorsConfig
+	AppName      string
+	AppHost      string
+	AppLang      string
+	AppVersion   string
+	IsDebug      bool
+	IsLocal      bool
+	ServerPort   int
+	Database     DbConfig
+	Security     SecurityConfig
+	Cors         CorsConfig
+	RadiusServer RadiusServerConfig
 }
 
 var AppConfig *Config
@@ -79,6 +86,10 @@ func LoadConfig() {
 		logger.Logger.Fatal().Msg("Security SECURITY_X_API_KEY  is required.")
 	}
 
+	radiusAccessHanlderServerPort := getEnvAsInt("ACCESS_HANDLER_SERVER_PORT", typeUtil.Int(1812), typeUtil.Int(0), typeUtil.Int(6666665))
+	radiusAccountingHanlderServerPort := getEnvAsInt("ACCOUNTING_HANDLER_SERVER_PORT", typeUtil.Int(1813), typeUtil.Int(0), typeUtil.Int(6666665))
+	radiusCoaHandlerServerPort := getEnvAsInt("COA_HANDLER_SERVER_PORT", typeUtil.Int(1812), typeUtil.Int(0), typeUtil.Int(6666665))
+
 	AppConfig = &Config{
 		AppName:    appName,
 		AppHost:    appHost,
@@ -107,6 +118,11 @@ func LoadConfig() {
 			Methods:     "GET,POST,PUT,DELETE,OPTIONS",
 			Headers:     "Origin, Content-Type, Accept, Authorization",
 			Credentials: false,
+		},
+		RadiusServer: RadiusServerConfig{
+			AccessHandlerServerPort:     radiusAccessHanlderServerPort,
+			AccountingHandlerServerPort: radiusAccountingHanlderServerPort,
+			CoaHandlerServerPort:        radiusCoaHandlerServerPort,
 		},
 	}
 
