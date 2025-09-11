@@ -13,6 +13,7 @@ require (
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.30.2
 	gorm.io/plugin/dbresolver v1.6.2
+	layeh.com/radius v0.0.0-20231213012653-1006025d24f8
 )
 
 require (

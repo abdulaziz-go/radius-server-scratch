@@ -87,7 +87,7 @@ func LoadConfig() {
 
 	radiusAccessHanlderServerPort := getEnvAsInt("ACCESS_HANDLER_SERVER_PORT", typeUtil.Int(1812), typeUtil.Int(0), typeUtil.Int(6666665))
 	radiusAccountingHanlderServerPort := getEnvAsInt("ACCOUNTING_HANDLER_SERVER_PORT", typeUtil.Int(1813), typeUtil.Int(0), typeUtil.Int(6666665))
-	radiusCoaHandlerServerPort := getEnvAsInt("COA_HANDLER_SERVER_PORT", typeUtil.Int(1812), typeUtil.Int(0), typeUtil.Int(6666665))
+	radiusCoaHandlerServerPort := getEnvAsInt("COA_HANDLER_SERVER_PORT", typeUtil.Int(3799), typeUtil.Int(0), typeUtil.Int(6666665))
 
 	AppConfig = &Config{
 		AppName:    appName,

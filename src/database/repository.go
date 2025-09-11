@@ -1,6 +1,7 @@
 package database
 
 import (
+	"errors"
 	"radius-server/src/database/entities"
 
 	"gorm.io/gorm"
@@ -65,4 +66,17 @@ func CreateNas(tx *gorm.DB, nas *entities.RadiusNas) (*entities.RadiusNas, error
 func DeleteNas(tx *gorm.DB, id int64) error {
 	db := getDb(tx)
 	return db.Where("id=?", id).Delete(&entities.RadiusNas{}).Error
+}
+
+func GetNasByIp(ip string) (*entities.RadiusNas, error) {
+	nas := &entities.RadiusNas{}
+	result := DbConn.Table(radiusNasTableName()).Where("ip_address=?", ip).First(&nas)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, result.Error
+	}
+	
+	return nas, nil
 }
