@@ -1,4 +1,4 @@
-package services
+package tests
 
 import (
 	"radius-server/src/database"

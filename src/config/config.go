@@ -4,7 +4,6 @@ import (
 	"os"
 	"radius-server/src/common/logger"
 	"strconv"
-	"strings"
 
 	typeUtil "radius-server/src/utils/type"
 
@@ -181,32 +180,4 @@ func getEnvAsBool(key string, defaultValue *bool) bool {
 		logger.Logger.Fatal().Msgf("Environment variable %s must be a valid boolean, got %s", key, value)
 	}
 	return boolValue
-}
-
-func getEnvAsEnums[T ~string](key string, defaultValue *[]T, allowedValues []string) []T {
-	rawValue, exists := os.LookupEnv(key)
-	if !exists {
-		if defaultValue == nil {
-			logger.Logger.Fatal().Msgf("Required environment variable %s is not set", key)
-			return []T{}
-		}
-		return *defaultValue
-	}
-	values := strings.Split(rawValue, ",")
-	var result []T
-	for _, v := range values {
-		v = strings.TrimSpace(v)
-		valid := false
-		for _, allowed := range allowedValues {
-			if v == allowed {
-				result = append(result, T(v))
-				valid = true
-				break
-			}
-		}
-		if !valid {
-			logger.Logger.Fatal().Msgf("Invalid value '%s' in environment variable %s. Allowed values: %v", v, key, allowedValues)
-		}
-	}
-	return result
 }

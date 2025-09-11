@@ -9,3 +9,6 @@ docker-down:
 
 docker-prune:
 	docker system prune -a --volumes
+
+run-tests:
+	go test -v ./tests -run '^TestOrderedSuite$$'
