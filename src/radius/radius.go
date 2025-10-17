@@ -38,32 +38,6 @@ func (rs *RadiusServer) Start() error {
 		}
 	}()
 
-	// Accounting Server (1813)
-	go func() {
-		acctSrv := radius.PacketServer{
-			Addr:         fmt.Sprintf(":%d", config.AppConfig.RadiusServer.AccountingHandlerServerPort),
-			Handler:      radius.HandlerFunc(handlers.AccountingHandler),
-			SecretSource: secretSource,
-		}
-		log.Printf("Accounting server running on :%d\n", config.AppConfig.RadiusServer.AccountingHandlerServerPort)
-		if err := acctSrv.ListenAndServe(); err != nil {
-			errChan <- err
-		}
-	}()
-
-	// CoA / Disconnect Server (3799)
-	go func() {
-		coaSrv := radius.PacketServer{
-			Addr:         fmt.Sprintf(":%d", config.AppConfig.RadiusServer.CoaHandlerServerPort),
-			Handler:      radius.HandlerFunc(handlers.CoaHandler),
-			SecretSource: secretSource,
-		}
-		log.Printf("CoA/Disconnect server running on :%d\n", config.AppConfig.RadiusServer.CoaHandlerServerPort)
-		if err := coaSrv.ListenAndServe(); err != nil {
-			errChan <- err
-		}
-	}()
-
 	err := <-errChan
 
 	return err

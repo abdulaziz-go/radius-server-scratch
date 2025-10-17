@@ -18,11 +18,6 @@ func main() {
 	if err := database.Connect(); err != nil {
 		logger.Logger.Fatal().Msgf("Connection to database error. %s", err.Error())
 	}
-	if config.AppConfig.Database.AutoRunMigration {
-		if err := database.RunMigrations(); err != nil {
-			logger.Logger.Fatal().Msgf("Run migration error. %s", err.Error())
-		}
-	}
 
 	go func() {
 		app, listenAddress := routes.New()
