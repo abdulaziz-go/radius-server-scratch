@@ -77,6 +77,50 @@ func GetNasByIp(ip string) (*entities.RadiusNas, error) {
 		}
 		return nil, result.Error
 	}
-	
+
 	return nas, nil
+}
+
+func GetUserByUsername(username string) (*entities.RadiusUser, error) {
+	user := &entities.RadiusUser{}
+
+	result := DbConn.Table(radiusUserTableName()).Where("username=?", username).First(&user)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, result.Error
+	}
+
+	return user, nil
+}
+
+func CreateUsertype(tx *gorm.DB, userType *entities.RadiusUserType) (*entities.RadiusUserType, error) {
+	db := getDb(tx)
+	err := db.Create(userType).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return userType, nil
+}
+
+func CreateUser(tx *gorm.DB, user *entities.RadiusUser) (*entities.RadiusUser, error) {
+	db := getDb(tx)
+	err := db.Create(user).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func DeleteAllUserTypes(tx *gorm.DB) error {
+	db := getDb(tx)
+	return db.Exec("DELETE FROM " + radiusUserTypeTableName()).Error
+}
+
+func DeleteAllUsers(tx *gorm.DB) error {
+	db := getDb(tx)
+	return db.Exec("DELETE FROM " + radiusUserTableName()).Error
 }

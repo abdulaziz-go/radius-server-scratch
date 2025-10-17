@@ -40,6 +40,9 @@ type RadiusServerConfig struct {
 	AccessHandlerServerPort     int
 	AccountingHandlerServerPort int
 	CoaHandlerServerPort        int
+	AccessHandlerServerHost     string
+	AccountingHandlerServerHost string
+	CoaHandlerServerHost        string
 }
 
 type Config struct {
@@ -89,6 +92,10 @@ func LoadConfig() {
 	radiusAccountingHanlderServerPort := getEnvAsInt("ACCOUNTING_HANDLER_SERVER_PORT", typeUtil.Int(1813), typeUtil.Int(0), typeUtil.Int(6666665))
 	radiusCoaHandlerServerPort := getEnvAsInt("COA_HANDLER_SERVER_PORT", typeUtil.Int(3799), typeUtil.Int(0), typeUtil.Int(6666665))
 
+	radiusAccessHanlderServerHost := getEnvAsString("ACCESS_HANDLER_SERVER_HOST", typeUtil.String("localhost"))
+	radiusAccountingHanlderServerHost := getEnvAsString("ACCOUNTING_HANDLER_SERVER_HOST", typeUtil.String("localhost"))
+	radiusCoaHandlerServerHost := getEnvAsString("COA_HANDLER_SERVER_HOST", typeUtil.String("localhost"))
+
 	AppConfig = &Config{
 		AppName:    appName,
 		AppHost:    appHost,
@@ -122,6 +129,9 @@ func LoadConfig() {
 			AccessHandlerServerPort:     radiusAccessHanlderServerPort,
 			AccountingHandlerServerPort: radiusAccountingHanlderServerPort,
 			CoaHandlerServerPort:        radiusCoaHandlerServerPort,
+			AccessHandlerServerHost:     radiusAccessHanlderServerHost,
+			AccountingHandlerServerHost: radiusAccountingHanlderServerHost,
+			CoaHandlerServerHost:        radiusCoaHandlerServerHost,
 		},
 	}
 

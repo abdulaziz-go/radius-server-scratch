@@ -14,8 +14,9 @@ import (
 func TestMain(m *testing.M) {
 	// Ensure working directory is the module root so ./.env is discoverable
 	chdirToModuleRoot()
-	logger.InitializeLogger()
 	config.LoadConfig()
+	logger.InitializeLogger()
+	InitlizeValues()
 	logger.Logger.Info().Msg("Starting tests...")
 	if err := database.Connect(); err != nil {
 		logger.Logger.Fatal().Msgf("Connection to database error. %s", err.Error())
