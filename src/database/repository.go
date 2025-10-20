@@ -12,25 +12,8 @@ type PreloadOption struct {
 	Modifier    func(*gorm.DB) *gorm.DB
 }
 
-// Table helpers for entities present in src/database/entities
-func radiusUserTypeTableName() string {
-	return entities.RadiusUserType{}.TableName()
-}
-
-func radiusUserTableName() string {
-	return entities.RadiusUser{}.TableName()
-}
-
-func radiusPolicyTableName() string {
-	return entities.RadiusPolicy{}.TableName()
-}
-
 func radiusNasTableName() string {
 	return entities.RadiusNas{}.TableName()
-}
-
-func radiusAccountingTableName() string {
-	return entities.RadiusAccounting{}.TableName()
 }
 
 func getDb(tx *gorm.DB) *gorm.DB {
@@ -53,21 +36,6 @@ func HealthCheck() bool {
 	return err == nil
 }
 
-func CreateNas(tx *gorm.DB, nas *entities.RadiusNas) (*entities.RadiusNas, error) {
-	db := getDb(tx)
-	err := db.Create(nas).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return nas, nil
-}
-
-func DeleteNas(tx *gorm.DB, id int64) error {
-	db := getDb(tx)
-	return db.Where("id=?", id).Delete(&entities.RadiusNas{}).Error
-}
-
 func GetNasByIp(ip string) (*entities.RadiusNas, error) {
 	nas := &entities.RadiusNas{}
 	result := DbConn.Table(radiusNasTableName()).Where("ip_address=?", ip).First(&nas)
@@ -79,48 +47,4 @@ func GetNasByIp(ip string) (*entities.RadiusNas, error) {
 	}
 
 	return nas, nil
-}
-
-func GetUserByUsername(username string) (*entities.RadiusUser, error) {
-	user := &entities.RadiusUser{}
-
-	result := DbConn.Table(radiusUserTableName()).Where("username=?", username).First(&user)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, result.Error
-	}
-
-	return user, nil
-}
-
-func CreateUsertype(tx *gorm.DB, userType *entities.RadiusUserType) (*entities.RadiusUserType, error) {
-	db := getDb(tx)
-	err := db.Create(userType).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return userType, nil
-}
-
-func CreateUser(tx *gorm.DB, user *entities.RadiusUser) (*entities.RadiusUser, error) {
-	db := getDb(tx)
-	err := db.Create(user).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return user, nil
-}
-
-func DeleteAllUserTypes(tx *gorm.DB) error {
-	db := getDb(tx)
-	return db.Exec("DELETE FROM " + radiusUserTypeTableName()).Error
-}
-
-func DeleteAllUsers(tx *gorm.DB) error {
-	db := getDb(tx)
-	return db.Exec("DELETE FROM " + radiusUserTableName()).Error
 }

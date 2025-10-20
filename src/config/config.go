@@ -45,6 +45,20 @@ type RadiusServerConfig struct {
 	CoaHandlerServerHost        string
 }
 
+type RedisConnectionConfig struct {
+	MaxNumber       int
+	OpenMinNumber   int
+	MaxLifetimeSec  int
+	MaxIdleTimeSec  int
+	DeleteBatchSize int
+	ResponseLimit   int
+}
+
+type RedisConfig struct {
+	Host       string
+	Connection RedisConnectionConfig
+}
+
 type Config struct {
 	AppName      string
 	AppHost      string
@@ -54,6 +68,7 @@ type Config struct {
 	IsLocal      bool
 	ServerPort   int
 	Database     DbConfig
+	Redis        RedisConfig
 	Security     SecurityConfig
 	Cors         CorsConfig
 	RadiusServer RadiusServerConfig
@@ -82,6 +97,14 @@ func LoadConfig() {
 	dbBatchInsertSize := getEnvAsInt("DB_BATCH_INSERT_SIZE", typeUtil.Int(1000), typeUtil.Int(1), nil)
 	dbAutoRunMigration := getEnvAsBool("DB_AUTO_RUN_MIGRATION", typeUtil.Bool(true))
 	dbLogger := getEnvAsBool("DB_LOGGER", typeUtil.Bool(true))
+
+	redisHost := getEnvAsString("REDIS_HOST", typeUtil.String("localhost:6481"))
+	redisConnectionMaxNumber := getEnvAsInt("REDIS_CONNECTION_MAX_NUMBER", typeUtil.Int(10), nil, nil)
+	redisConnectionOpenMinNumber := getEnvAsInt("REDIS_CONNECTION_OPEN_MIN_NUMBER", typeUtil.Int(1), nil, nil)
+	redisConnectionMaxLifetimeSec := getEnvAsInt("REDIS_CONNECTION_MAX_LIFETIME_SEC", typeUtil.Int(1800), nil, nil)
+	redisConnectionMaxIdleTimeSec := getEnvAsInt("REDIS_CONNECTION_MAX_IDLE_TIME_SEC", typeUtil.Int(300), nil, nil)
+	redisDeleteBatchSize := getEnvAsInt("REDIS_BATCH_DELETE_SIZE", typeUtil.Int(1000), typeUtil.Int(1), nil)
+	redisResponseLimit := getEnvAsInt("REDIS_RESPONSE_LIMIT", typeUtil.Int(1000), typeUtil.Int(1), nil)
 
 	securityXApiKey := getEnvAsString("SECURITY_X_API_KEY", typeUtil.String(""))
 	if securityXApiKey == "" {
@@ -115,6 +138,17 @@ func LoadConfig() {
 			BatchInsertSize:  dbBatchInsertSize,
 			AutoRunMigration: dbAutoRunMigration,
 			Logger:           dbLogger,
+		},
+		Redis: RedisConfig{
+			Host: redisHost,
+			Connection: RedisConnectionConfig{
+				MaxNumber:       redisConnectionMaxNumber,
+				OpenMinNumber:   redisConnectionOpenMinNumber,
+				MaxLifetimeSec:  redisConnectionMaxLifetimeSec,
+				MaxIdleTimeSec:  redisConnectionMaxIdleTimeSec,
+				DeleteBatchSize: redisDeleteBatchSize,
+				ResponseLimit:   redisResponseLimit,
+			},
 		},
 		Security: SecurityConfig{
 			XApiKey: securityXApiKey,

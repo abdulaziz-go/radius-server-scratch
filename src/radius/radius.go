@@ -47,14 +47,12 @@ type SecretSource struct {
 }
 
 func (s *SecretSource) RADIUSSecret(ctx context.Context, addr net.Addr) ([]byte, error) {
-	fmt.Println("addr: ", addr.Network())
 	udpAddr, ok := addr.(*net.UDPAddr)
 	if !ok {
 		return nil, fmt.Errorf("invalid addr type: %T", addr)
 	}
 
 	ip := udpAddr.IP.String()
-	fmt.Println("Ip", ip)
 	nas, err := database.GetNasByIp(ip)
 	if err != nil {
 		return nil, err
