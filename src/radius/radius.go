@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"radius-server/src/common/logger"
 	"radius-server/src/config"
 	"radius-server/src/database"
 	"radius-server/src/radius/handlers"
+	"radius-server/src/redis"
 
 	"layeh.com/radius"
 )
@@ -53,12 +55,27 @@ func (s *SecretSource) RADIUSSecret(ctx context.Context, addr net.Addr) ([]byte,
 	}
 
 	ip := udpAddr.IP.String()
-	nas, err := database.GetNasByIp(ip)
+
+	nas, err := redis.GetNASByIP(ip)
+	if err == nil {
+		return []byte(nas.Secret), err
+	}
+
+	nas, err = database.GetNasByIp(ip)
 	if err != nil {
 		return nil, err
 	}
 	if nas == nil {
 		return nil, errors.New("NAS not found")
+	}
+
+	if err = redis.HSetNasClient(map[string]interface{}{
+		"id":         nas.Id,
+		"nas_name":   nas.NasName,
+		"ip_address": nas.IpAddress,
+		"secret":     nas.Secret,
+	}); err != nil {
+		logger.Logger.Error().Msgf("error while writing redis. %s", err.Error())
 	}
 
 	return []byte(nas.Secret), nil

@@ -1,6 +1,7 @@
 package numberUtil
 
 import (
+	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -68,4 +69,25 @@ func IsStringFloatValue(str string) bool {
 func IsStringIntValue(str string) bool {
 	_, err := strconv.Atoi(str)
 	return err == nil
+}
+
+func ParseToInt64(value interface{}) (int64, error) {
+	switch v := value.(type) {
+	case int:
+		return int64(v), nil
+	case int64:
+		return v, nil
+	case uint64:
+		return int64(v), nil
+	case float64:
+		return int64(v), nil
+	case string:
+		num, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return num, nil
+	default:
+		return 0, fmt.Errorf("unsupported type: %T", value)
+	}
 }

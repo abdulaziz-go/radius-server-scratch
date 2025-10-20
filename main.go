@@ -5,6 +5,7 @@ import (
 	"radius-server/src/config"
 	"radius-server/src/database"
 	"radius-server/src/radius"
+	"radius-server/src/redis"
 	"radius-server/src/routes"
 )
 
@@ -17,6 +18,10 @@ func main() {
 
 	if err := database.Connect(); err != nil {
 		logger.Logger.Fatal().Msgf("Connection to database error. %s", err.Error())
+	}
+
+	if err := redis.Connect(); err != nil {
+		logger.Logger.Fatal().Msgf("Connection to redis error. %s", err.Error())
 	}
 
 	go func() {
