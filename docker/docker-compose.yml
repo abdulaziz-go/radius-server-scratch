@@ -28,3 +28,7 @@ services:
       - ./redis-etc-radius/redis.conf:/usr/local/lib/redis.conf
     ports:
       - 6481:6379
+        
+        
+        
+        git@git.corp.31c.io:sales-demo/radius-server.git
