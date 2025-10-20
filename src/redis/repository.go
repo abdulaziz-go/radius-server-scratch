@@ -15,41 +15,34 @@ func GetNASByIP(ip string) (*entities.RadiusNas, error) {
 		return nil, fmt.Errorf("redis search failed: %w", err)
 	}
 
-	// Parse map response
-	resMap, ok := res.(map[interface{}]interface{})
-	if !ok {
+	arr, ok := res.([]interface{})
+	if !ok || len(arr) < 2 {
 		return nil, fmt.Errorf("unexpected response type: %T", res)
 	}
 
-	totalResults, _ := resMap["total_results"].(int64)
-	if totalResults == 0 {
+	totalResults, ok := arr[0].(int64)
+	if !ok || totalResults == 0 {
 		return nil, fmt.Errorf("record not found for IP: %s", ip)
 	}
 
-	results, ok := resMap["results"].([]interface{})
-	if !ok || len(results) == 0 {
+	if len(arr) < 3 {
 		return nil, fmt.Errorf("no results found for IP: %s", ip)
 	}
 
-	firstResult, ok := results[0].(map[interface{}]interface{})
+	// Fields array for the first document
+	docFields, ok := arr[2].([]interface{}) // arr[1] is document ID
 	if !ok {
-		return nil, fmt.Errorf("invalid result format")
+		return nil, fmt.Errorf("invalid document format")
 	}
 
-	extraAttrs, ok := firstResult["extra_attributes"].(map[interface{}]interface{})
-	if !ok {
-		return nil, fmt.Errorf("no extra_attributes in result")
-	}
-
-	// Convert to string map
+	// Convert flat array to map[string]string
 	fieldMap := make(map[string]string)
-	for k, v := range extraAttrs {
-		key := fmt.Sprintf("%v", k)
-		val := fmt.Sprintf("%v", v)
+	for i := 0; i < len(docFields)-1; i += 2 {
+		key, _ := docFields[i].(string)
+		val := fmt.Sprintf("%v", docFields[i+1])
 		fieldMap[key] = val
 	}
 
-	// Build NAS entity
 	nas := &entities.RadiusNas{}
 	if id, ok := fieldMap["id"]; ok {
 		value, _ := numberUtil.ParseToInt64(id)
