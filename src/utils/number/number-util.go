@@ -73,16 +73,15 @@ func IsStringIntValue(str string) bool {
 
 func ParseToInt64(value interface{}) (int64, error) {
 	switch v := value.(type) {
-	case int:
-		return int64(v), nil
-	case int64:
-		return v, nil
-	case uint64:
-		return int64(v), nil
-	case float64:
-		return int64(v), nil
 	case string:
 		num, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return num, nil
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+		str := fmt.Sprintf("%.0f", v)
+		num, err := strconv.ParseInt(str, 10, 64)
 		if err != nil {
 			return 0, err
 		}

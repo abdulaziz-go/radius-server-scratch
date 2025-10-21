@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"radius-server/src/database/entities"
+
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,18 +43,19 @@ func TestHSetNasClientAndGetNASByIP(t *testing.T) {
 		require.NoError(t, err, "Failed to create RediSearch index")
 	}
 
-	fields := map[string]interface{}{
-		"id":         1,
-		"nas_name":   "MainNAS",
-		"ip_address": "192.168.1.10",
-		"secret":     "testSecret",
+	nasName := "MainNAS"
+	testNas := &entities.RadiusNas{
+		Id:        1,
+		NasName:   &nasName,
+		IpAddress: "192.168.1.10",
+		Secret:    "testSecret",
 	}
 
 	t.Run("Insert NAS client with HSET", func(t *testing.T) {
-		err := HSetNasClient(fields)
+		err := HSetNasClient(testNas)
 		require.NoError(t, err, "HSetNasClient should not return an error")
 
-		stored, err := client.HGetAll(testCtx, fmt.Sprintf("%v:%v", nasHashTableName, fields["id"])).Result()
+		stored, err := client.HGetAll(testCtx, fmt.Sprintf("%v:%v", nasHashTableName, testNas.Id)).Result()
 		require.NoError(t, err)
 		assert.Equal(t, "MainNAS", stored["nas_name"])
 		assert.Equal(t, "192.168.1.10", stored["ip_address"])
@@ -93,7 +96,7 @@ func TestSubscriberOperations(t *testing.T) {
 		err := CreateOrUpdateSubscriber(subscriber)
 		require.NoError(t, err, "CreateOrUpdateSubscriber should not return an error")
 
-		stored, err := client.HGetAll(testCtx, fmt.Sprintf("%s:%d", subscriberHashTableName, subscriber.SubscriberID)).Result()
+		stored, err := client.HGetAll(testCtx, fmt.Sprintf("%s:%s", subscriberHashTableName, subscriber.IP)).Result()
 		require.NoError(t, err)
 		assert.Equal(t, "12345", stored["subscriber_id"])
 		assert.Equal(t, "192.168.1.100", stored["ip"])
@@ -114,11 +117,13 @@ func TestSubscriberOperations(t *testing.T) {
 	t.Run("Get subscriber by session ID", func(t *testing.T) {
 		retrieved, err := GetSubscriberBySessionID("session-abc-123")
 		require.NoError(t, err, "GetSubscriberBySessionID should not return an error")
+		require.Len(t, retrieved, 1, "Should return exactly one subscriber")
 
-		assert.Equal(t, int64(12345), retrieved.SubscriberID)
-		assert.Equal(t, "192.168.1.100", retrieved.IP)
-		assert.Equal(t, "session-abc-123", retrieved.SessionID)
-		assert.Equal(t, int64(1634567890), retrieved.LastUpdatedTime)
+		subscriber := retrieved[0]
+		assert.Equal(t, int64(12345), subscriber.SubscriberID)
+		assert.Equal(t, "192.168.1.100", subscriber.IP)
+		assert.Equal(t, "session-abc-123", subscriber.SessionID)
+		assert.Equal(t, int64(1634567890), subscriber.LastUpdatedTime)
 	})
 
 	t.Run("Update subscriber", func(t *testing.T) {
@@ -134,8 +139,10 @@ func TestSubscriberOperations(t *testing.T) {
 
 		retrieved, err := GetSubscriberBySessionID("session-abc-123")
 		require.NoError(t, err)
-		assert.Equal(t, "192.168.1.200", retrieved.IP)
-		assert.Equal(t, int64(1634567900), retrieved.LastUpdatedTime)
+		require.Len(t, retrieved, 1, "Should return exactly one subscriber")
+		subscriber := retrieved[0]
+		assert.Equal(t, "192.168.1.200", subscriber.IP)
+		assert.Equal(t, int64(1634567900), subscriber.LastUpdatedTime)
 	})
 
 	t.Run("Delete subscriber by IP", func(t *testing.T) {

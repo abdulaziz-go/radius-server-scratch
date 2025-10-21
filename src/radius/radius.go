@@ -70,12 +70,7 @@ func (s *SecretSource) RADIUSSecret(ctx context.Context, addr net.Addr) ([]byte,
 		return nil, errors.New("NAS not found")
 	}
 
-	if err = redis.HSetNasClient(map[string]interface{}{
-		"id":         nas.Id,
-		"nas_name":   nas.NasName,
-		"ip_address": nas.IpAddress,
-		"secret":     nas.Secret,
-	}); err != nil {
+	if err = redis.HSetNasClient(nas); err != nil {
 		logger.Logger.Error().Msgf("error while writing redis. %s", err.Error())
 	}
 

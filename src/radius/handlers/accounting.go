@@ -85,7 +85,7 @@ func handleAccountingStop(sessionID string) error {
 func handleAccountingInterimUpdate(sessionID, username, nasIP, framedIP string) error {
 	currentTime := time.Now().Unix()
 
-	existingSubscriber, err := redis.GetSubscriberBySessionID(sessionID)
+	existingSubscribers, err := redis.GetSubscriberBySessionID(sessionID)
 	if err != nil {
 		logger.Logger.Info().Str("session_id", sessionID).Msg("Subscriber not found, creating new subscriber")
 
@@ -101,9 +101,24 @@ func handleAccountingInterimUpdate(sessionID, username, nasIP, framedIP string) 
 		return redis.CreateOrUpdateSubscriber(subscriber)
 	}
 
-	if existingSubscriber.IP != "" && existingSubscriber.IP != framedIP {
-		if err := redis.DeleteSubscriberByIP(existingSubscriber.IP); err != nil {
-			logger.Logger.Warn().Err(err).Str("old_ip", existingSubscriber.IP).Msg("Failed to delete old IP mapping")
+	// Find existing subscriber with the same IP or use the first one if no match
+	var existingSubscriber *redis.SubscriberData
+	for _, sub := range existingSubscribers {
+		if sub.IP == framedIP {
+			existingSubscriber = sub
+			break
+		}
+	}
+	if existingSubscriber == nil && len(existingSubscribers) > 0 {
+		existingSubscriber = existingSubscribers[0]
+	}
+
+	// Clean up old IP mappings for this session (except the current one)
+	for _, sub := range existingSubscribers {
+		if sub.IP != "" && sub.IP != framedIP {
+			if err := redis.DeleteSubscriberByIP(sub.IP); err != nil {
+				logger.Logger.Warn().Err(err).Str("old_ip", sub.IP).Msg("Failed to delete old IP mapping")
+			}
 		}
 	}
 
