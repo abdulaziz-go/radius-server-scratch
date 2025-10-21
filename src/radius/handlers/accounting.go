@@ -21,9 +21,16 @@ func AccountingHandler(w radius.ResponseWriter, r *radius.Request) {
 		framedIPStr = framedIP.String()
 	}
 
-	sessionID, subscriberID := "", ""
+	sessionID, subscriberID, err := getSessionIDAndSubscriberIDFromNAS(r, nasIP)
+	if err != nil {
+		logger.Logger.Error().Err(err).Msg("Failed to get session/subscriber ID from NAS")
+		w.Write(r.Response(radius.CodeAccountingResponse))
+		return
+	}
 
 	logger.Logger.Info().
+		Str("session_id", sessionID).
+		Str("subscriber_id", subscriberID).
 		Str("username", username).
 		Str("nas_ip", nasIP).
 		Str("framed_ip", framedIPStr).

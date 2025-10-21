@@ -79,14 +79,14 @@ func TestSubscriberOperations(t *testing.T) {
 
 	_, err := client.Do(testCtx,
 		"FT.CREATE", subscriberIndex, "ON", "HASH", "PREFIX", "1", "subscriber:",
-		"SCHEMA", "subscriber_id", "NUMERIC", "SORTABLE", "ip", "TAG", "session_id", "TAG", "last_updated_time", "NUMERIC", "SORTABLE",
+		"SCHEMA", "subscriber_id", "TAG", "ip", "TAG", "session_id", "TAG", "last_updated_time", "NUMERIC", "SORTABLE",
 	).Result()
 	if err != nil && !strings.Contains(err.Error(), "Index already exists") {
 		require.NoError(t, err, "Failed to create subscriber RediSearch index")
 	}
 
 	subscriber := &SubscriberData{
-		SubscriberID:    12345,
+		SubscriberID:    "12345",
 		IP:              "192.168.1.100",
 		SessionID:       "session-abc-123",
 		LastUpdatedTime: 1634567890,
@@ -108,7 +108,7 @@ func TestSubscriberOperations(t *testing.T) {
 		retrieved, err := GetSubscriberByIP("192.168.1.100")
 		require.NoError(t, err, "GetSubscriberByIP should not return an error")
 
-		assert.Equal(t, int64(12345), retrieved.SubscriberID)
+		assert.Equal(t, "12345", retrieved.SubscriberID)
 		assert.Equal(t, "192.168.1.100", retrieved.IP)
 		assert.Equal(t, "session-abc-123", retrieved.SessionID)
 		assert.Equal(t, int64(1634567890), retrieved.LastUpdatedTime)
@@ -120,7 +120,7 @@ func TestSubscriberOperations(t *testing.T) {
 		require.Len(t, retrieved, 1, "Should return exactly one subscriber")
 
 		subscriber := retrieved[0]
-		assert.Equal(t, int64(12345), subscriber.SubscriberID)
+		assert.Equal(t, "12345", subscriber.SubscriberID)
 		assert.Equal(t, "192.168.1.100", subscriber.IP)
 		assert.Equal(t, "session-abc-123", subscriber.SessionID)
 		assert.Equal(t, int64(1634567890), subscriber.LastUpdatedTime)
@@ -128,7 +128,7 @@ func TestSubscriberOperations(t *testing.T) {
 
 	t.Run("Update subscriber", func(t *testing.T) {
 		updatedSubscriber := &SubscriberData{
-			SubscriberID:    12345,
+			SubscriberID:    "12345",
 			IP:              "192.168.1.200", // Changed IP
 			SessionID:       "session-abc-123",
 			LastUpdatedTime: 1634567900, // Updated time
@@ -155,7 +155,7 @@ func TestSubscriberOperations(t *testing.T) {
 
 	t.Run("Delete subscriber by session ID", func(t *testing.T) {
 		newSubscriber := &SubscriberData{
-			SubscriberID:    54321,
+			SubscriberID:    "54321",
 			IP:              "192.168.1.150",
 			SessionID:       "session-xyz-456",
 			LastUpdatedTime: 1634567800,
