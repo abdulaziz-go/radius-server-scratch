@@ -13,19 +13,17 @@ import (
 
 func AccountingHandler(w radius.ResponseWriter, r *radius.Request) {
 	statusType := rfc2866.AcctStatusType_Get(r.Packet)
-
-	sessionID := rfc2866.AcctSessionID_GetString(r.Packet)
 	username := rfc2865.UserName_GetString(r.Packet)
 	nasIP := r.RemoteAddr.(*net.UDPAddr).IP.String()
 	framedIP := rfc2865.FramedIPAddress_Get(r.Packet)
-
 	var framedIPStr string
 	if framedIP != nil {
 		framedIPStr = framedIP.String()
 	}
 
+	sessionID, subscriberID := "", ""
+
 	logger.Logger.Info().
-		Str("session_id", sessionID).
 		Str("username", username).
 		Str("nas_ip", nasIP).
 		Str("framed_ip", framedIPStr).
@@ -34,7 +32,7 @@ func AccountingHandler(w radius.ResponseWriter, r *radius.Request) {
 
 	switch statusType {
 	case rfc2866.AcctStatusType_Value_Start:
-		if err := handleAccountingStart(sessionID, username, nasIP, framedIPStr); err != nil {
+		if err := handleAccountingStart(sessionID, subscriberID, username, nasIP, framedIPStr); err != nil {
 			logger.Logger.Error().Err(err).Msg("Failed to handle accounting start")
 		}
 
@@ -44,7 +42,7 @@ func AccountingHandler(w radius.ResponseWriter, r *radius.Request) {
 		}
 
 	case rfc2866.AcctStatusType_Value_InterimUpdate:
-		if err := handleAccountingInterimUpdate(sessionID, username, nasIP, framedIPStr); err != nil {
+		if err := handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, framedIPStr); err != nil {
 			logger.Logger.Error().Err(err).Msg("Failed to handle accounting interim update")
 		}
 
@@ -57,7 +55,7 @@ func AccountingHandler(w radius.ResponseWriter, r *radius.Request) {
 	w.Write(r.Response(radius.CodeAccountingResponse))
 }
 
-func handleAccountingStart(sessionID, username, nasIP, framedIP string) error {
+func handleAccountingStart(sessionID, subscriberID, username, nasIP, framedIP string) error {
 	currentTime := time.Now().Unix()
 
 	if framedIP != "" {
@@ -65,8 +63,6 @@ func handleAccountingStart(sessionID, username, nasIP, framedIP string) error {
 			logger.Logger.Warn().Err(err).Str("ip", framedIP).Msg("Failed to delete existing subscriber by IP")
 		}
 	}
-
-	subscriberID := time.Now().UnixNano()
 
 	subscriber := &redis.SubscriberData{
 		SubscriberID:    subscriberID,
@@ -82,14 +78,12 @@ func handleAccountingStop(sessionID string) error {
 	return redis.DeleteSubscriberBySessionID(sessionID)
 }
 
-func handleAccountingInterimUpdate(sessionID, username, nasIP, framedIP string) error {
+func handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, framedIP string) error {
 	currentTime := time.Now().Unix()
 
 	existingSubscribers, err := redis.GetSubscriberBySessionID(sessionID)
 	if err != nil {
 		logger.Logger.Info().Str("session_id", sessionID).Msg("Subscriber not found, creating new subscriber")
-
-		subscriberID := time.Now().UnixNano()
 
 		subscriber := &redis.SubscriberData{
 			SubscriberID:    subscriberID,

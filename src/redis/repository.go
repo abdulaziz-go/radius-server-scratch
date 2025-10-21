@@ -106,7 +106,7 @@ func HSetNasClient(nas *entities.RadiusNas) error {
 }
 
 type SubscriberData struct {
-	SubscriberID    int64  `json:"subscriber_id"`
+	SubscriberID    string `json:"subscriber_id"`
 	IP              string `json:"ip"`
 	SessionID       string `json:"session_id"`
 	LastUpdatedTime int64  `json:"last_updated_time"`
@@ -118,7 +118,7 @@ func DeleteSubscriberByIP(ip string) error {
 	}
 
 	key := fmt.Sprintf("%s:%s", subscriberHashTableName, ip)
-	
+
 	if err := redisClient.Del(Ctx, key).Err(); err != nil {
 		return fmt.Errorf("failed to delete subscriber by IP %s: %w", ip, err)
 	}
@@ -175,7 +175,7 @@ func GetSubscriberByIP(ip string) (*SubscriberData, error) {
 	}
 
 	key := fmt.Sprintf("%s:%s", subscriberHashTableName, ip)
-	
+
 	fieldMap, err := redisClient.HGetAll(Ctx, key).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get subscriber by IP: %w", err)
@@ -187,8 +187,7 @@ func GetSubscriberByIP(ip string) (*SubscriberData, error) {
 
 	subscriber := &SubscriberData{}
 	if id, ok := fieldMap["subscriber_id"]; ok {
-		value, _ := numberUtil.ParseToInt64(id)
-		subscriber.SubscriberID = value
+		subscriber.SubscriberID = id
 	}
 	if ipAddr, ok := fieldMap["ip"]; ok {
 		subscriber.IP = ipAddr
@@ -251,8 +250,7 @@ func GetSubscriberBySessionID(sessionID string) ([]*SubscriberData, error) {
 
 		subscriber := &SubscriberData{}
 		if id, ok := fieldMap["subscriber_id"]; ok {
-			value, _ := numberUtil.ParseToInt64(id)
-			subscriber.SubscriberID = value
+			subscriber.SubscriberID = id
 		}
 		if ip, ok := fieldMap["ip"]; ok {
 			subscriber.IP = ip
