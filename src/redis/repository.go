@@ -15,14 +15,13 @@ func GetNASByIP(ip string) (*entities.RadiusNas, error) {
 		return nil, fmt.Errorf("redis search failed: %w", err)
 	}
 
-	// Parse map response
 	resMap, ok := res.(map[interface{}]interface{})
 	if !ok {
 		return nil, fmt.Errorf("unexpected response type: %T", res)
 	}
 
-	totalResults, _ := resMap["total_results"].(int64)
-	if totalResults == 0 {
+	totalResults, ok := resMap["total_results"].(int64)
+	if !ok || totalResults == 0 {
 		return nil, fmt.Errorf("record not found for IP: %s", ip)
 	}
 
@@ -38,10 +37,9 @@ func GetNASByIP(ip string) (*entities.RadiusNas, error) {
 
 	extraAttrs, ok := firstResult["extra_attributes"].(map[interface{}]interface{})
 	if !ok {
-		return nil, fmt.Errorf("no extra_attributes in result")
+		return nil, fmt.Errorf("invalid extra_attributes format")
 	}
 
-	// Convert to string map
 	fieldMap := make(map[string]string)
 	for k, v := range extraAttrs {
 		key := fmt.Sprintf("%v", k)
@@ -49,7 +47,6 @@ func GetNASByIP(ip string) (*entities.RadiusNas, error) {
 		fieldMap[key] = val
 	}
 
-	// Build NAS entity
 	nas := &entities.RadiusNas{}
 	if id, ok := fieldMap["id"]; ok {
 		value, _ := numberUtil.ParseToInt64(id)
