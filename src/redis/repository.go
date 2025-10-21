@@ -16,36 +16,38 @@ func GetNASByIP(ip string) (*entities.RadiusNas, error) {
 		return nil, fmt.Errorf("redis search failed: %w", err)
 	}
 
-	fmt.Println("here is the whole response ", res)
-	arr, ok := res.([]interface{})
-	if !ok || len(arr) < 2 {
+	resMap, ok := res.(map[interface{}]interface{})
+	if !ok {
 		return nil, fmt.Errorf("unexpected response type: %T", res)
 	}
 
-	totalResults, ok := arr[0].(int64)
+	totalResults, ok := resMap["total_results"].(int64)
 	if !ok || totalResults == 0 {
 		return nil, fmt.Errorf("record not found for IP: %s", ip)
 	}
 
-	if len(arr) < 3 {
+	results, ok := resMap["results"].([]interface{})
+	if !ok || len(results) == 0 {
 		return nil, fmt.Errorf("no results found for IP: %s", ip)
 	}
 
-	// Fields array for the first document
-	docFields, ok := arr[2].([]interface{}) // arr[1] is document ID
+	firstResult, ok := results[0].(map[interface{}]interface{})
 	if !ok {
-		return nil, fmt.Errorf("invalid document format")
+		return nil, fmt.Errorf("invalid result format")
 	}
 
-	// Convert flat array to map[string]string
+	extraAttrs, ok := firstResult["extra_attributes"].(map[interface{}]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid extra_attributes format")
+	}
+
 	fieldMap := make(map[string]string)
-	for i := 0; i < len(docFields)-1; i += 2 {
-		key, _ := docFields[i].(string)
-		val := fmt.Sprintf("%v", docFields[i+1])
+	for k, v := range extraAttrs {
+		key := fmt.Sprintf("%v", k)
+		val := fmt.Sprintf("%v", v)
 		fieldMap[key] = val
 	}
 
-	// Build NAS entity
 	nas := &entities.RadiusNas{}
 	if id, ok := fieldMap["id"]; ok {
 		value, _ := numberUtil.ParseToInt64(id)
@@ -113,21 +115,27 @@ func DeleteSubscriberByIP(ip string) error {
 		return fmt.Errorf("failed to search subscriber by IP: %w", err)
 	}
 
-	arr, ok := res.([]interface{})
-	if !ok || len(arr) < 2 {
+	resMap, ok := res.(map[interface{}]interface{})
+	if !ok {
 		return fmt.Errorf("unexpected response type: %T", res)
 	}
 
-	totalResults, ok := arr[0].(int64)
+	totalResults, ok := resMap["total_results"].(int64)
 	if !ok || totalResults == 0 {
 		return nil
 	}
 
-	if len(arr) < 3 {
+	results, ok := resMap["results"].([]interface{})
+	if !ok || len(results) == 0 {
 		return nil
 	}
 
-	docKey, ok := arr[1].(string)
+	firstResult, ok := results[0].(map[interface{}]interface{})
+	if !ok {
+		return fmt.Errorf("invalid result format")
+	}
+
+	docKey, ok := firstResult["id"].(string)
 	if !ok {
 		return fmt.Errorf("invalid document key format")
 	}
@@ -150,21 +158,27 @@ func DeleteSubscriberBySessionID(sessionID string) error {
 		return fmt.Errorf("failed to search subscriber by session ID: %w", err)
 	}
 
-	arr, ok := res.([]interface{})
-	if !ok || len(arr) < 2 {
+	resMap, ok := res.(map[interface{}]interface{})
+	if !ok {
 		return fmt.Errorf("unexpected response type: %T", res)
 	}
 
-	totalResults, ok := arr[0].(int64)
+	totalResults, ok := resMap["total_results"].(int64)
 	if !ok || totalResults == 0 {
 		return nil
 	}
 
-	for i := 1; i < len(arr); i += 2 {
-		if i >= len(arr) {
-			break
+	results, ok := resMap["results"].([]interface{})
+	if !ok || len(results) == 0 {
+		return nil
+	}
+
+	for _, result := range results {
+		resultMap, ok := result.(map[interface{}]interface{})
+		if !ok {
+			continue
 		}
-		docKey, ok := arr[i].(string)
+		docKey, ok := resultMap["id"].(string)
 		if !ok {
 			continue
 		}
@@ -191,30 +205,35 @@ func GetSubscriberByIP(ip string) (*SubscriberData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to search subscriber by IP: %w", err)
 	}
-
-	arr, ok := res.([]interface{})
-	if !ok || len(arr) < 2 {
+	resMap, ok := res.(map[interface{}]interface{})
+	if !ok {
 		return nil, fmt.Errorf("unexpected response type: %T", res)
 	}
 
-	totalResults, ok := arr[0].(int64)
+	totalResults, ok := resMap["total_results"].(int64)
 	if !ok || totalResults == 0 {
 		return nil, fmt.Errorf("subscriber not found for IP: %s", ip)
 	}
 
-	if len(arr) < 3 {
+	results, ok := resMap["results"].([]interface{})
+	if !ok || len(results) == 0 {
 		return nil, fmt.Errorf("no results found for IP: %s", ip)
 	}
 
-	docFields, ok := arr[2].([]interface{})
+	firstResult, ok := results[0].(map[interface{}]interface{})
 	if !ok {
-		return nil, fmt.Errorf("invalid document format")
+		return nil, fmt.Errorf("invalid result format")
+	}
+
+	extraAttrs, ok := firstResult["extra_attributes"].(map[interface{}]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid extra_attributes format")
 	}
 
 	fieldMap := make(map[string]string)
-	for i := 0; i < len(docFields)-1; i += 2 {
-		key, _ := docFields[i].(string)
-		val := fmt.Sprintf("%v", docFields[i+1])
+	for k, v := range extraAttrs {
+		key := fmt.Sprintf("%v", k)
+		val := fmt.Sprintf("%v", v)
 		fieldMap[key] = val
 	}
 
@@ -248,29 +267,35 @@ func GetSubscriberBySessionID(sessionID string) (*SubscriberData, error) {
 		return nil, fmt.Errorf("failed to search subscriber by session ID: %w", err)
 	}
 
-	arr, ok := res.([]interface{})
-	if !ok || len(arr) < 2 {
+	resMap, ok := res.(map[interface{}]interface{})
+	if !ok {
 		return nil, fmt.Errorf("unexpected response type: %T", res)
 	}
 
-	totalResults, ok := arr[0].(int64)
+	totalResults, ok := resMap["total_results"].(int64)
 	if !ok || totalResults == 0 {
 		return nil, fmt.Errorf("subscriber not found for session ID: %s", sessionID)
 	}
 
-	if len(arr) < 3 {
+	results, ok := resMap["results"].([]interface{})
+	if !ok || len(results) == 0 {
 		return nil, fmt.Errorf("no results found for session ID: %s", sessionID)
 	}
 
-	docFields, ok := arr[2].([]interface{})
+	firstResult, ok := results[0].(map[interface{}]interface{})
 	if !ok {
-		return nil, fmt.Errorf("invalid document format")
+		return nil, fmt.Errorf("invalid result format")
+	}
+
+	extraAttrs, ok := firstResult["extra_attributes"].(map[interface{}]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid extra_attributes format")
 	}
 
 	fieldMap := make(map[string]string)
-	for i := 0; i < len(docFields)-1; i += 2 {
-		key, _ := docFields[i].(string)
-		val := fmt.Sprintf("%v", docFields[i+1])
+	for k, v := range extraAttrs {
+		key := fmt.Sprintf("%v", k)
+		val := fmt.Sprintf("%v", v)
 		fieldMap[key] = val
 	}
 

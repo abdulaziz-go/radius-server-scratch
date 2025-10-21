@@ -76,7 +76,7 @@ func TestSubscriberOperations(t *testing.T) {
 
 	_, err := client.Do(testCtx,
 		"FT.CREATE", subscriberIndex, "ON", "HASH", "PREFIX", "1", "subscriber:",
-		"SCHEMA", "subscriber_id", "NUMERIC", "SORTABLE", "ip", "TEXT", "session_id", "TEXT", "last_updated_time", "NUMERIC", "SORTABLE",
+		"SCHEMA", "subscriber_id", "NUMERIC", "SORTABLE", "ip", "TAG", "session_id", "TAG", "last_updated_time", "NUMERIC", "SORTABLE",
 	).Result()
 	if err != nil && !strings.Contains(err.Error(), "Index already exists") {
 		require.NoError(t, err, "Failed to create subscriber RediSearch index")
