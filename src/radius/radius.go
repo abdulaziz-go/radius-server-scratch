@@ -28,14 +28,15 @@ func (rs *RadiusServer) Start() error {
 	// Here you would add the actual RADIUS server initialization and start logic
 	errChan := make(chan error)
 
+	// Accounting Server (1813)
 	go func() {
-		accessSrv := radius.PacketServer{
-			Addr:         fmt.Sprintf(":%d", config.AppConfig.RadiusServer.AccessHandlerServerPort),
-			Handler:      radius.HandlerFunc(handlers.AccessHandler),
+		acctSrv := radius.PacketServer{
+			Addr:         fmt.Sprintf(":%d", config.AppConfig.RadiusServer.AccountingHandlerServerPort),
+			Handler:      radius.HandlerFunc(handlers.AccountingHandler),
 			SecretSource: secretSource,
 		}
-		log.Printf("Access server running on :%d", config.AppConfig.RadiusServer.AccessHandlerServerPort)
-		if err := accessSrv.ListenAndServe(); err != nil {
+		log.Printf("Accounting server running on :%d\n", config.AppConfig.RadiusServer.AccountingHandlerServerPort)
+		if err := acctSrv.ListenAndServe(); err != nil {
 			errChan <- err
 		}
 	}()

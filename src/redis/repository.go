@@ -15,35 +15,48 @@ func GetNASByIP(ip string) (*entities.RadiusNas, error) {
 		return nil, fmt.Errorf("redis search failed: %w", err)
 	}
 
+<<<<<<< HEAD
 	resMap, ok := res.(map[interface{}]interface{})
 	if !ok {
 		return nil, fmt.Errorf("unexpected response type: %T", res)
 	}
 
 	totalResults, ok := resMap["total_results"].(int64)
+=======
+	arr, ok := res.([]interface{})
+	if !ok || len(arr) < 2 {
+		return nil, fmt.Errorf("unexpected response type: %T", res)
+	}
+
+	totalResults, ok := arr[0].(int64)
+>>>>>>> dbc31cde1d97d7490e03beb6da360df823da028e
 	if !ok || totalResults == 0 {
 		return nil, fmt.Errorf("record not found for IP: %s", ip)
 	}
 
-	results, ok := resMap["results"].([]interface{})
-	if !ok || len(results) == 0 {
+	if len(arr) < 3 {
 		return nil, fmt.Errorf("no results found for IP: %s", ip)
 	}
 
-	firstResult, ok := results[0].(map[interface{}]interface{})
+	// Fields array for the first document
+	docFields, ok := arr[2].([]interface{}) // arr[1] is document ID
 	if !ok {
-		return nil, fmt.Errorf("invalid result format")
+		return nil, fmt.Errorf("invalid document format")
 	}
 
+<<<<<<< HEAD
 	extraAttrs, ok := firstResult["extra_attributes"].(map[interface{}]interface{})
 	if !ok {
 		return nil, fmt.Errorf("invalid extra_attributes format")
 	}
 
+=======
+	// Convert flat array to map[string]string
+>>>>>>> dbc31cde1d97d7490e03beb6da360df823da028e
 	fieldMap := make(map[string]string)
-	for k, v := range extraAttrs {
-		key := fmt.Sprintf("%v", k)
-		val := fmt.Sprintf("%v", v)
+	for i := 0; i < len(docFields)-1; i += 2 {
+		key, _ := docFields[i].(string)
+		val := fmt.Sprintf("%v", docFields[i+1])
 		fieldMap[key] = val
 	}
 
