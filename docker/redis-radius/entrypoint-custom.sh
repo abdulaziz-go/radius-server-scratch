@@ -19,10 +19,7 @@ create_subscriber_index() {
 
 create_nas_index() {
   redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" FT.CREATE "$INDEX_NAME_NAS" ON HASH PREFIX 1 "radius_nas:" SCHEMA \
-    id NUMERIC SORTABLE \
-    nas_name TEXT \
     ip_address TAG \
-    secret TEXT
 }
 
 index_exists() {
