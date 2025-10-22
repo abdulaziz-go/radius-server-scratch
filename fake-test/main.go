@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -37,6 +38,21 @@ type TestResult struct {
 }
 
 func main() {
+	// Check if user wants to run individual tests
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "start":
+			testAccountingStart()
+			return
+		case "interim":
+			testAccountingInterim()
+			return
+		case "stop":
+			testAccountingStop()
+			return
+		}
+	}
+
 	fmt.Println("🚀 Starting comprehensive RADIUS accounting test...")
 	fmt.Printf("📊 Testing with %d concurrent sessions, %d updates each\n", numSessions, numUpdates)
 
@@ -264,5 +280,125 @@ func analyzeResults(results []TestResult, totalDuration time.Duration) {
 		fmt.Printf("⚠️  PARTIAL SUCCESS: %d/%d sessions completed successfully. Check failed sessions above.\n", successCount, len(results))
 	} else {
 		fmt.Printf("🚨 MAJOR ISSUES: Only %d/%d sessions completed successfully. Service needs investigation.\n", successCount, len(results))
+	}
+}
+
+// Individual test functions for manual testing
+
+// testAccountingStart tests only the Accounting-Start functionality
+func testAccountingStart() {
+	fmt.Println("🚀 Testing Accounting-Start only...")
+	rand.Seed(time.Now().UnixNano())
+
+	// Use fixed timestamp for consistent session IDs
+	fixedTimestamp := int64(1729600000) // Fixed timestamp for consistent session IDs
+
+	// Test with both IPv4 and IPv6
+	testIPs := []string{
+		"192.168.1.100", // IPv4
+		"2001:db8::100", // IPv6
+	}
+
+	for i, ip := range testIPs {
+		session := TestSession{
+			Username:     fmt.Sprintf("start_test_%d", i+1),
+			SessionID:    fmt.Sprintf("start_session_%d_%d", fixedTimestamp, i),
+			FramedIP:     ip,
+			NASPort:      uint32(2000 + i),
+			SubscriberID: fmt.Sprintf("start_sub_%d", i+1),
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		fmt.Printf("📝 Testing Accounting-Start for %s (IP: %s)\n", session.Username, session.FramedIP)
+
+		start := time.Now()
+		err := sendAccountingRequest(ctx, session, rfc2866.AcctStatusType_Value_Start)
+		duration := time.Since(start)
+
+		if err != nil {
+			fmt.Printf("❌ FAILED: %v (duration: %v)\n", err, duration)
+		} else {
+			fmt.Printf("✅ SUCCESS: Accounting-Start sent successfully (duration: %v)\n", duration)
+		}
+	}
+}
+
+// testAccountingInterim tests only the Accounting-Interim-Update functionality
+func testAccountingInterim() {
+	fmt.Println("🚀 Testing Accounting-Interim-Update only...")
+	rand.Seed(time.Now().UnixNano())
+
+	// Test with both IPv4 and IPv6
+	testIPs := []string{
+		"192.168.1.101", // IPv4
+		"2001:db8::101", // IPv6
+	}
+
+	for i, ip := range testIPs {
+		session := TestSession{
+			Username:     fmt.Sprintf("interim_test_%d", i+1),
+			SessionID:    fmt.Sprintf("interim_session_%d_%d", time.Now().Unix(), i),
+			FramedIP:     ip,
+			NASPort:      uint32(3000 + i),
+			SubscriberID: fmt.Sprintf("interim_sub_%d", i+1),
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		fmt.Printf("📝 Testing Accounting-Interim-Update for %s (IP: %s)\n", session.Username, session.FramedIP)
+
+		start := time.Now()
+		err := sendAccountingRequest(ctx, session, rfc2866.AcctStatusType_Value_InterimUpdate)
+		duration := time.Since(start)
+
+		if err != nil {
+			fmt.Printf("❌ FAILED: %v (duration: %v)\n", err, duration)
+		} else {
+			fmt.Printf("✅ SUCCESS: Accounting-Interim-Update sent successfully (duration: %v)\n", duration)
+		}
+	}
+}
+
+// testAccountingStop tests only the Accounting-Stop functionality
+// Uses the exact same session data as start test for proper lifecycle testing
+func testAccountingStop() {
+	fmt.Println("🚀 Testing Accounting-Stop only...")
+	rand.Seed(time.Now().UnixNano())
+
+	// Use exact same timestamp as start test for identical session IDs
+	fixedTimestamp := int64(1729600000) // Same fixed timestamp as start test
+
+	// Use same IPs and session data as start test
+	testIPs := []string{
+		"192.168.1.100", // IPv4 - same as start test
+		"2001:db8::100", // IPv6 - same as start test
+	}
+
+	for i, ip := range testIPs {
+		session := TestSession{
+			Username:     fmt.Sprintf("start_test_%d", i+1), // Same username as start test
+			SessionID:    fmt.Sprintf("start_session_%d_%d", fixedTimestamp, i), // Exact same session ID as start test
+			FramedIP:     ip,
+			NASPort:      uint32(2000 + i), // Same NAS port as start test
+			SubscriberID: fmt.Sprintf("start_sub_%d", i+1), // Same subscriber ID as start test
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		fmt.Printf("📝 Testing Accounting-Stop for %s (IP: %s)\n", session.Username, session.FramedIP)
+
+		start := time.Now()
+		err := sendAccountingRequest(ctx, session, rfc2866.AcctStatusType_Value_Stop)
+		duration := time.Since(start)
+
+		if err != nil {
+			fmt.Printf("❌ FAILED: %v (duration: %v)\n", err, duration)
+		} else {
+			fmt.Printf("✅ SUCCESS: Accounting-Stop sent successfully (duration: %v)\n", duration)
+		}
 	}
 }
