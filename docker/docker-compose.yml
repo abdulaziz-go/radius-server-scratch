@@ -28,3 +28,15 @@ services:
       - ./redis-etc-radius/redis.conf:/usr/local/lib/redis.conf
     ports:
       - 6481:6379
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    hostname: redisinsight
+    container_name: redisinsight
+    volumes:
+      - redisinsight:/data
+    ports:
+      - "5540:5540"
+
+volumes:
+  redisinsight:

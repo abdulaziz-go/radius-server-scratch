@@ -2,6 +2,7 @@ package redis
 
 import (
 	"fmt"
+	"radius-server/src/config"
 	"radius-server/src/database/entities"
 	numberUtil "radius-server/src/utils/number"
 	redisUtil "radius-server/src/utils/redis"
@@ -10,7 +11,7 @@ import (
 func GetNASByIP(ip string) (*entities.RadiusNas, error) {
 	query := fmt.Sprintf("@ip_address:{%s}", redisUtil.PrepareParam(ip))
 
-	res, err := redisClient.Do(Ctx, "FT.SEARCH", nasIndex, query, "LIMIT", "0", "1").Result()
+	res, err := redisClient.Do(Ctx, "FT.SEARCH", config.NasIndex, query, "LIMIT", "0", "1").Result()
 	if err != nil {
 		return nil, fmt.Errorf("redis search failed: %w", err)
 	}
@@ -74,7 +75,7 @@ func HSetNasClient(nas *entities.RadiusNas) error {
 		return fmt.Errorf("missing 'id' field for NAS client")
 	}
 
-	key := fmt.Sprintf("%v:%v", nasHashTableName, nas.Id)
+	key := fmt.Sprintf("%v:%v", config.NasHashTableName, nas.Id)
 
 	fields := map[string]interface{}{
 		"id":         nas.Id,
@@ -118,7 +119,7 @@ func DeleteSubscriberByIP(ip string) error {
 		return fmt.Errorf("IP address cannot be empty")
 	}
 
-	key := fmt.Sprintf("%s:%s", subscriberHashTableName, ip)
+	key := fmt.Sprintf("%s:%s", config.SubscriberHashTableName, ip)
 
 	if err := redisClient.Del(Ctx, key).Err(); err != nil {
 		return fmt.Errorf("failed to delete subscriber by IP %s: %w", ip, err)
@@ -133,7 +134,7 @@ func DeleteSubscriberBySessionID(sessionID string) error {
 	}
 
 	query := fmt.Sprintf("@session_id:{%s}", redisUtil.PrepareParam(sessionID))
-	res, err := redisClient.Do(Ctx, "FT.SEARCH", subscriberIndex, query).Result()
+	res, err := redisClient.Do(Ctx, "FT.SEARCH", config.SubscriberIndex, query).Result()
 	if err != nil {
 		return fmt.Errorf("failed to search subscriber by session ID: %w", err)
 	}
@@ -175,7 +176,7 @@ func GetSubscriberByIP(ip string) (*SubscriberData, error) {
 		return nil, fmt.Errorf("IP address cannot be empty")
 	}
 
-	key := fmt.Sprintf("%s:%s", subscriberHashTableName, ip)
+	key := fmt.Sprintf("%s:%s", config.SubscriberHashTableName, ip)
 
 	fieldMap, err := redisClient.HGetAll(Ctx, key).Result()
 	if err != nil {
@@ -213,7 +214,7 @@ func GetSubscriberBySessionID(sessionID string) ([]*SubscriberData, error) {
 	}
 
 	query := fmt.Sprintf("@session_id:{%s}", redisUtil.PrepareParam(sessionID))
-	res, err := redisClient.Do(Ctx, "FT.SEARCH", subscriberIndex, query).Result()
+	res, err := redisClient.Do(Ctx, "FT.SEARCH", config.SubscriberIndex, query).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to search subscriber by session ID: %w", err)
 	}
@@ -285,7 +286,7 @@ func CreateOrUpdateSubscriber(subscriber *SubscriberData) error {
 		return fmt.Errorf("IP address cannot be empty")
 	}
 
-	subscriberKey := fmt.Sprintf("%s:%s", subscriberHashTableName, subscriber.IP)
+	subscriberKey := fmt.Sprintf("%s:%s", config.SubscriberHashTableName, subscriber.IP)
 	subscriberFields := map[string]interface{}{
 		"subscriber_id":     subscriber.SubscriberID,
 		"ip":                subscriber.IP,

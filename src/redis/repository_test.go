@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	"radius-server/src/config"
 	"strings"
 	"testing"
 
@@ -36,7 +37,7 @@ func TestHSetNasClientAndGetNASByIP(t *testing.T) {
 	client.FlushDB(testCtx)
 
 	_, err := client.Do(testCtx,
-		"FT.CREATE", nasIndex, "ON", "HASH", "PREFIX", "1", "radius_nas:",
+		"FT.CREATE", config.nasIndex, "ON", "HASH", "PREFIX", "1", "radius_nas:",
 		"SCHEMA", "ip_address", "TAG",
 	).Result()
 	if err != nil && !strings.Contains(err.Error(), "Index already exists") {
@@ -55,7 +56,7 @@ func TestHSetNasClientAndGetNASByIP(t *testing.T) {
 		err := HSetNasClient(testNas)
 		require.NoError(t, err, "HSetNasClient should not return an error")
 
-		stored, err := client.HGetAll(testCtx, fmt.Sprintf("%v:%v", nasHashTableName, testNas.Id)).Result()
+		stored, err := client.HGetAll(testCtx, fmt.Sprintf("%v:%v", config.nasHashTableName, testNas.Id)).Result()
 		require.NoError(t, err)
 		assert.Equal(t, "MainNAS", stored["nas_name"])
 		assert.Equal(t, "192.168.1.10", stored["ip_address"])
@@ -78,7 +79,7 @@ func TestSubscriberOperations(t *testing.T) {
 	client.FlushDB(testCtx)
 
 	_, err := client.Do(testCtx,
-		"FT.CREATE", subscriberIndex, "ON", "HASH", "PREFIX", "1", "subscriber:",
+		"FT.CREATE", config.subscriberIndex, "ON", "HASH", "PREFIX", "1", "subscriber:",
 		"SCHEMA", "subscriber_id", "TAG", "ip", "TAG", "session_id", "TAG", "last_updated_time", "NUMERIC", "SORTABLE",
 	).Result()
 	if err != nil && !strings.Contains(err.Error(), "Index already exists") {
@@ -96,7 +97,7 @@ func TestSubscriberOperations(t *testing.T) {
 		err := CreateOrUpdateSubscriber(subscriber)
 		require.NoError(t, err, "CreateOrUpdateSubscriber should not return an error")
 
-		stored, err := client.HGetAll(testCtx, fmt.Sprintf("%s:%s", subscriberHashTableName, subscriber.IP)).Result()
+		stored, err := client.HGetAll(testCtx, fmt.Sprintf("%s:%s", config.subscriberHashTableName, subscriber.IP)).Result()
 		require.NoError(t, err)
 		assert.Equal(t, "12345", stored["subscriber_id"])
 		assert.Equal(t, "192.168.1.100", stored["ip"])

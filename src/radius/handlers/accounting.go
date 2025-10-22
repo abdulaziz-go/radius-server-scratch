@@ -1,10 +1,11 @@
 package handlers
 
 import (
+	"layeh.com/radius/rfc3162"
 	"net"
 	"radius-server/src/common/logger"
+	"radius-server/src/config"
 	"radius-server/src/redis"
-	"radius-server/src/utils/ip"
 	"time"
 
 	"layeh.com/radius"
@@ -16,10 +17,17 @@ func AccountingHandler(w radius.ResponseWriter, r *radius.Request) {
 	statusType := rfc2866.AcctStatusType_Get(r.Packet)
 	username := rfc2865.UserName_GetString(r.Packet)
 	nasIP := r.RemoteAddr.(*net.UDPAddr).IP.String()
+	var framedIPStr, ipVersion string
 	framedIP := rfc2865.FramedIPAddress_Get(r.Packet)
-	var framedIPStr string
 	if framedIP != nil {
 		framedIPStr = framedIP.String()
+		ipVersion = config.IPv4
+	} else {
+		ipv6Net := rfc3162.FramedIPv6Prefix_Get(r.Packet)
+		if ipv6Net != nil && ipv6Net.IP != nil {
+			framedIPStr = ipv6Net.IP.String()
+			ipVersion = config.IPv6
+		}
 	}
 
 	sessionID, subscriberID, err := getSessionIDAndSubscriberIDFromNAS(r, nasIP)
@@ -40,7 +48,7 @@ func AccountingHandler(w radius.ResponseWriter, r *radius.Request) {
 
 	switch statusType {
 	case rfc2866.AcctStatusType_Value_Start:
-		if err := handleAccountingStart(sessionID, subscriberID, username, nasIP, framedIPStr); err != nil {
+		if err := handleAccountingStart(sessionID, subscriberID, username, nasIP, framedIPStr, ipVersion); err != nil {
 			logger.Logger.Error().Err(err).Msg("Failed to handle accounting start")
 		}
 
@@ -50,7 +58,7 @@ func AccountingHandler(w radius.ResponseWriter, r *radius.Request) {
 		}
 
 	case rfc2866.AcctStatusType_Value_InterimUpdate:
-		if err := handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, framedIPStr); err != nil {
+		if err := handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, framedIPStr, ipVersion); err != nil {
 			logger.Logger.Error().Err(err).Msg("Failed to handle accounting interim update")
 		}
 
@@ -63,7 +71,7 @@ func AccountingHandler(w radius.ResponseWriter, r *radius.Request) {
 	w.Write(r.Response(radius.CodeAccountingResponse))
 }
 
-func handleAccountingStart(sessionID, subscriberID, username, nasIP, framedIP string) error {
+func handleAccountingStart(sessionID, subscriberID, username, nasIP, framedIP, ipVersion string) error {
 	currentTime := time.Now().Unix()
 
 	if framedIP != "" {
@@ -75,7 +83,7 @@ func handleAccountingStart(sessionID, subscriberID, username, nasIP, framedIP st
 	subscriber := &redis.SubscriberData{
 		SubscriberID:    subscriberID,
 		IP:              framedIP,
-		IpVersion:       ip.DetectIPVersion(framedIP),
+		IpVersion:       ipVersion,
 		SessionID:       sessionID,
 		LastUpdatedTime: currentTime,
 	}
@@ -87,7 +95,7 @@ func handleAccountingStop(sessionID string) error {
 	return redis.DeleteSubscriberBySessionID(sessionID)
 }
 
-func handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, framedIP string) error {
+func handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, framedIP, ipVersion string) error {
 	currentTime := time.Now().Unix()
 
 	existingSubscribers, err := redis.GetSubscriberBySessionID(sessionID)
@@ -97,7 +105,7 @@ func handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, fra
 		subscriber := &redis.SubscriberData{
 			SubscriberID:    subscriberID,
 			IP:              framedIP,
-			IpVersion:       ip.DetectIPVersion(framedIP),
+			IpVersion:       ipVersion,
 			SessionID:       sessionID,
 			LastUpdatedTime: currentTime,
 		}
@@ -129,7 +137,7 @@ func handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, fra
 	updatedSubscriber := &redis.SubscriberData{
 		SubscriberID:    existingSubscriber.SubscriberID,
 		IP:              framedIP,
-		IpVersion:       ip.DetectIPVersion(framedIP),
+		IpVersion:       ipVersion,
 		SessionID:       sessionID,
 		LastUpdatedTime: currentTime,
 	}
