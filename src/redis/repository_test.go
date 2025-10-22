@@ -37,7 +37,7 @@ func TestHSetNasClientAndGetNASByIP(t *testing.T) {
 	client.FlushDB(testCtx)
 
 	_, err := client.Do(testCtx,
-		"FT.CREATE", config.nasIndex, "ON", "HASH", "PREFIX", "1", "radius_nas:",
+		"FT.CREATE", config.NasIndex, "ON", "HASH", "PREFIX", "1", "radius_nas:",
 		"SCHEMA", "ip_address", "TAG",
 	).Result()
 	if err != nil && !strings.Contains(err.Error(), "Index already exists") {
@@ -56,7 +56,7 @@ func TestHSetNasClientAndGetNASByIP(t *testing.T) {
 		err := HSetNasClient(testNas)
 		require.NoError(t, err, "HSetNasClient should not return an error")
 
-		stored, err := client.HGetAll(testCtx, fmt.Sprintf("%v:%v", config.nasHashTableName, testNas.Id)).Result()
+		stored, err := client.HGetAll(testCtx, fmt.Sprintf("%v:%v", config.NasHashTableName, testNas.Id)).Result()
 		require.NoError(t, err)
 		assert.Equal(t, "MainNAS", stored["nas_name"])
 		assert.Equal(t, "192.168.1.10", stored["ip_address"])
@@ -79,7 +79,7 @@ func TestSubscriberOperations(t *testing.T) {
 	client.FlushDB(testCtx)
 
 	_, err := client.Do(testCtx,
-		"FT.CREATE", config.subscriberIndex, "ON", "HASH", "PREFIX", "1", "subscriber:",
+		"FT.CREATE", config.SubscriberIndex, "ON", "HASH", "PREFIX", "1", "subscriber:",
 		"SCHEMA", "subscriber_id", "TAG", "ip", "TAG", "session_id", "TAG", "last_updated_time", "NUMERIC", "SORTABLE",
 	).Result()
 	if err != nil && !strings.Contains(err.Error(), "Index already exists") {
@@ -97,7 +97,7 @@ func TestSubscriberOperations(t *testing.T) {
 		err := CreateOrUpdateSubscriber(subscriber)
 		require.NoError(t, err, "CreateOrUpdateSubscriber should not return an error")
 
-		stored, err := client.HGetAll(testCtx, fmt.Sprintf("%s:%s", config.subscriberHashTableName, subscriber.IP)).Result()
+		stored, err := client.HGetAll(testCtx, fmt.Sprintf("%s:%s", config.SubscriberHashTableName, subscriber.IP)).Result()
 		require.NoError(t, err)
 		assert.Equal(t, "12345", stored["subscriber_id"])
 		assert.Equal(t, "192.168.1.100", stored["ip"])
@@ -138,10 +138,8 @@ func TestSubscriberOperations(t *testing.T) {
 		err := CreateOrUpdateSubscriber(updatedSubscriber)
 		require.NoError(t, err, "CreateOrUpdateSubscriber should not return an error")
 
-		retrieved, err := GetSubscriberBySessionID("session-abc-123")
+		subscriber, err = GetSubscriberByIP("192.168.1.200")
 		require.NoError(t, err)
-		require.Len(t, retrieved, 1, "Should return exactly one subscriber")
-		subscriber := retrieved[0]
 		assert.Equal(t, "192.168.1.200", subscriber.IP)
 		assert.Equal(t, int64(1634567900), subscriber.LastUpdatedTime)
 	})
@@ -158,16 +156,16 @@ func TestSubscriberOperations(t *testing.T) {
 		newSubscriber := &SubscriberData{
 			SubscriberID:    "54321",
 			IP:              "192.168.1.150",
-			SessionID:       "session-xyz-456",
+			SessionID:       "start_session_1729600000_0",
 			LastUpdatedTime: 1634567800,
 		}
 		err := CreateOrUpdateSubscriber(newSubscriber)
 		require.NoError(t, err)
 
-		err = DeleteSubscriberBySessionID("session-xyz-456")
+		err = DeleteSubscriberByIP("192.168.1.150")
 		require.NoError(t, err, "DeleteSubscriberBySessionID should not return an error")
 
-		_, err = GetSubscriberBySessionID("session-xyz-456")
+		_, err = GetSubscriberBySessionID("start_session_1729600000_0")
 		assert.Error(t, err, "Should return error when subscriber not found")
 	})
 }

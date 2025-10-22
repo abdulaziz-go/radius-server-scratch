@@ -33,7 +33,6 @@ func AccountingHandler(w radius.ResponseWriter, r *radius.Request) {
 	sessionID, subscriberID, err := getSessionIDAndSubscriberIDFromNAS(r, nasIP)
 	if err != nil {
 		logger.Logger.Error().Err(err).Msg("Failed to get session/subscriber ID from NAS")
-		w.Write(r.Response(radius.CodeAccountingResponse))
 		return
 	}
 
@@ -50,22 +49,26 @@ func AccountingHandler(w radius.ResponseWriter, r *radius.Request) {
 	case rfc2866.AcctStatusType_Value_Start:
 		if err := handleAccountingStart(sessionID, subscriberID, username, nasIP, framedIPStr, ipVersion); err != nil {
 			logger.Logger.Error().Err(err).Msg("Failed to handle accounting start")
+			return
 		}
 
 	case rfc2866.AcctStatusType_Value_Stop:
-		if err := handleAccountingStop(sessionID); err != nil {
+		if err := handleAccountingStop(framedIPStr); err != nil {
 			logger.Logger.Error().Err(err).Msg("Failed to handle accounting stop")
+			return
 		}
 
 	case rfc2866.AcctStatusType_Value_InterimUpdate:
 		if err := handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, framedIPStr, ipVersion); err != nil {
 			logger.Logger.Error().Err(err).Msg("Failed to handle accounting interim update")
+			return
 		}
 
 	default:
 		logger.Logger.Warn().
 			Str("status_type", statusType.String()).
 			Msg("Unknown accounting status type")
+		return
 	}
 
 	w.Write(r.Response(radius.CodeAccountingResponse))
@@ -91,8 +94,8 @@ func handleAccountingStart(sessionID, subscriberID, username, nasIP, framedIP, i
 	return redis.CreateOrUpdateSubscriber(subscriber)
 }
 
-func handleAccountingStop(sessionID string) error {
-	return redis.DeleteSubscriberBySessionID(sessionID)
+func handleAccountingStop(ip string) error {
+	return redis.DeleteSubscriberByIP(ip)
 }
 
 func handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, framedIP, ipVersion string) error {

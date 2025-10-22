@@ -128,49 +128,6 @@ func DeleteSubscriberByIP(ip string) error {
 	return nil
 }
 
-func DeleteSubscriberBySessionID(sessionID string) error {
-	if sessionID == "" {
-		return fmt.Errorf("session ID cannot be empty")
-	}
-
-	query := fmt.Sprintf("@session_id:{%s}", redisUtil.PrepareParam(sessionID))
-	res, err := redisClient.Do(Ctx, "FT.SEARCH", config.SubscriberIndex, query).Result()
-	if err != nil {
-		return fmt.Errorf("failed to search subscriber by session ID: %w", err)
-	}
-
-	resMap, ok := res.(map[interface{}]interface{})
-	if !ok {
-		return fmt.Errorf("unexpected response type: %T", res)
-	}
-
-	totalResults, ok := resMap["total_results"].(int64)
-	if !ok || totalResults == 0 {
-		return nil
-	}
-
-	results, ok := resMap["results"].([]interface{})
-	if !ok || len(results) == 0 {
-		return nil
-	}
-
-	for _, result := range results {
-		resultMap, ok := result.(map[interface{}]interface{})
-		if !ok {
-			continue
-		}
-		docKey, ok := resultMap["id"].(string)
-		if !ok {
-			continue
-		}
-		if err := redisClient.Del(Ctx, docKey).Err(); err != nil {
-			return fmt.Errorf("failed to delete subscriber key %s: %w", docKey, err)
-		}
-	}
-
-	return nil
-}
-
 func GetSubscriberByIP(ip string) (*SubscriberData, error) {
 	if ip == "" {
 		return nil, fmt.Errorf("IP address cannot be empty")
