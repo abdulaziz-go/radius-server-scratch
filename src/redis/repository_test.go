@@ -130,9 +130,9 @@ func TestSubscriberOperations(t *testing.T) {
 	t.Run("Update subscriber", func(t *testing.T) {
 		updatedSubscriber := &SubscriberData{
 			SubscriberID:    "12345",
-			IP:              "192.168.1.200", // Changed IP
+			IP:              "192.168.1.200",
 			SessionID:       "session-abc-123",
-			LastUpdatedTime: 1634567900, // Updated time
+			LastUpdatedTime: 1634567900,
 		}
 
 		err := CreateOrUpdateSubscriber(updatedSubscriber)
@@ -150,6 +150,56 @@ func TestSubscriberOperations(t *testing.T) {
 
 		_, err = GetSubscriberByIP("192.168.1.200")
 		assert.Error(t, err, "Should return error when subscriber not found")
+	})
+
+	t.Run("Get subscriber by subscriber ID", func(t *testing.T) {
+		subscriber1 := &SubscriberData{
+			SubscriberID:    "test_subscriber_123",
+			IP:              "192.168.1.201",
+			IpVersion:       "4",
+			SessionID:       "session_test_123_ipv4",
+			LastUpdatedTime: 1634567950,
+		}
+		subscriber2 := &SubscriberData{
+			SubscriberID:    "test_subscriber_123",
+			IP:              "2001:db8::201",
+			IpVersion:       "6",
+			SessionID:       "session_test_123_ipv6",
+			LastUpdatedTime: 1634567960,
+		}
+
+		err := CreateOrUpdateSubscriber(subscriber1)
+		require.NoError(t, err, "CreateOrUpdateSubscriber should not return an error for IPv4")
+
+		err = CreateOrUpdateSubscriber(subscriber2)
+		require.NoError(t, err, "CreateOrUpdateSubscriber should not return an error for IPv6")
+
+		retrieved, err := GetSubscriberBySubscriberID("test_subscriber_123")
+		require.NoError(t, err, "GetSubscriberBySubscriberID should not return an error")
+		require.Len(t, retrieved, 2, "Should return exactly two subscribers (IPv4 and IPv6)")
+
+		var ipv4Found, ipv6Found bool
+		for _, sub := range retrieved {
+			assert.Equal(t, "test_subscriber_123", sub.SubscriberID)
+
+			if sub.IP == "192.168.1.201" {
+				ipv4Found = true
+				assert.Equal(t, "4", sub.IpVersion)
+				assert.Equal(t, "session_test_123_ipv4", sub.SessionID)
+				assert.Equal(t, int64(1634567950), sub.LastUpdatedTime)
+			} else if sub.IP == "2001:db8::201" {
+				ipv6Found = true
+				assert.Equal(t, "6", sub.IpVersion)
+				assert.Equal(t, "session_test_123_ipv6", sub.SessionID)
+				assert.Equal(t, int64(1634567960), sub.LastUpdatedTime)
+			}
+		}
+
+		assert.True(t, ipv4Found, "IPv4 subscriber should be found")
+		assert.True(t, ipv6Found, "IPv6 subscriber should be found")
+
+		_, err = GetSubscriberBySubscriberID("non_existent_subscriber")
+		assert.Error(t, err, "Should return error when subscriber ID not found")
 	})
 
 	t.Run("Delete subscriber by session ID", func(t *testing.T) {

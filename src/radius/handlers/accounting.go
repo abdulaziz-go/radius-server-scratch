@@ -1,12 +1,14 @@
 package handlers
 
 import (
-	"layeh.com/radius/rfc3162"
+	"errors"
 	"net"
 	"radius-server/src/common/logger"
 	"radius-server/src/config"
 	"radius-server/src/redis"
 	"time"
+
+	"layeh.com/radius/rfc3162"
 
 	"layeh.com/radius"
 	"layeh.com/radius/rfc2865"
@@ -53,7 +55,7 @@ func AccountingHandler(w radius.ResponseWriter, r *radius.Request) {
 		}
 
 	case rfc2866.AcctStatusType_Value_Stop:
-		if err := handleAccountingStop(framedIPStr); err != nil {
+		if err := handleAccountingStop(subscriberID, framedIPStr); err != nil {
 			logger.Logger.Error().Err(err).Msg("Failed to handle accounting stop")
 			return
 		}
@@ -77,11 +79,26 @@ func AccountingHandler(w radius.ResponseWriter, r *radius.Request) {
 func handleAccountingStart(sessionID, subscriberID, username, nasIP, framedIP, ipVersion string) error {
 	currentTime := time.Now().Unix()
 
-	if framedIP != "" {
-		if err := redis.DeleteSubscriberByIP(framedIP); err != nil {
-			logger.Logger.Warn().Err(err).Str("ip", framedIP).Msg("Failed to delete existing subscriber by IP")
+	subscribers, _ := redis.GetSubscriberBySubscriberID(subscriberID)
+	if len(subscribers) == 0 {
+		if framedIP != "" {
+			if err := redis.DeleteSubscriberByIP(framedIP); err != nil {
+				logger.Logger.Warn().Err(err).Str("ip", framedIP).Msg("Failed to delete existing subscriber by IP")
+				return err
+			}
+		} else {
+			return errors.New("ip address shouldn't be null")
 		}
+	} else {
+		logger.Logger.Info().
+			Str("subscriber_id", subscriberID).
+			Msg("Subscriber already exists in Redis")
 	}
+
+	logger.Logger.Info().
+		Int("existing_count", len(subscribers)).
+		Str("subscriber_id", subscriberID).
+		Msg("Number of existing subscribers found")
 
 	subscriber := &redis.SubscriberData{
 		SubscriberID:    subscriberID,
@@ -94,16 +111,28 @@ func handleAccountingStart(sessionID, subscriberID, username, nasIP, framedIP, i
 	return redis.CreateOrUpdateSubscriber(subscriber)
 }
 
-func handleAccountingStop(ip string) error {
-	return redis.DeleteSubscriberByIP(ip)
+func handleAccountingStop(subscriberId, ip string) error {
+	subscribers, _ := redis.GetSubscriberBySubscriberID(subscriberId)
+	if len(subscribers) == 0 {
+		return nil
+	}
+
+	for _, sub := range subscribers {
+		if sub.IP == ip {
+			return redis.DeleteSubscriberByIP(ip)
+		}
+	}
+	return nil
 }
 
 func handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, framedIP, ipVersion string) error {
 	currentTime := time.Now().Unix()
 
-	existingSubscribers, err := redis.GetSubscriberBySessionID(sessionID)
+	// Check if subscriber ID exists
+	existingSubscribers, err := redis.GetSubscriberBySubscriberID(subscriberID)
 	if err != nil {
-		logger.Logger.Info().Str("session_id", sessionID).Msg("Subscriber not found, creating new subscriber")
+		// Subscriber ID doesn't exist, create new record
+		logger.Logger.Info().Str("subscriber_id", subscriberID).Msg("Subscriber not found, creating new subscriber")
 
 		subscriber := &redis.SubscriberData{
 			SubscriberID:    subscriberID,
@@ -116,34 +145,49 @@ func handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, fra
 		return redis.CreateOrUpdateSubscriber(subscriber)
 	}
 
-	// Find existing subscriber with the same IP or use the first one if no match
-	var existingSubscriber *redis.SubscriberData
+	// Subscriber ID exists, check if IP address matches
+	var matchingSubscriber *redis.SubscriberData
 	for _, sub := range existingSubscribers {
 		if sub.IP == framedIP {
-			existingSubscriber = sub
+			matchingSubscriber = sub
 			break
 		}
 	}
-	if existingSubscriber == nil && len(existingSubscribers) > 0 {
-		existingSubscriber = existingSubscribers[0]
-	}
 
-	// Clean up old IP mappings for this session (except the current one)
-	for _, sub := range existingSubscribers {
-		if sub.IP != "" && sub.IP != framedIP {
-			if err := redis.DeleteSubscriberByIP(sub.IP); err != nil {
-				logger.Logger.Warn().Err(err).Str("old_ip", sub.IP).Msg("Failed to delete old IP mapping")
+	if matchingSubscriber != nil {
+		// IP matches, update record timestamp
+		logger.Logger.Info().Str("subscriber_id", subscriberID).Str("ip", framedIP).Msg("IP matches, updating timestamp")
+
+		updatedSubscriber := &redis.SubscriberData{
+			SubscriberID:    matchingSubscriber.SubscriberID,
+			IP:              framedIP,
+			IpVersion:       ipVersion,
+			SessionID:       sessionID,
+			LastUpdatedTime: currentTime,
+		}
+
+		return redis.CreateOrUpdateSubscriber(updatedSubscriber)
+	} else {
+		// IP doesn't match, delete old subscriber with different IP and create new record
+		logger.Logger.Info().Str("subscriber_id", subscriberID).Str("new_ip", framedIP).Msg("IP doesn't match, deleting old records and creating new one")
+
+		// Delete all existing records for this subscriber ID
+		for _, sub := range existingSubscribers {
+			if err = redis.DeleteSubscriberByIP(sub.IP); err != nil {
+				logger.Logger.Warn().Err(err).Str("old_ip", sub.IP).Msg("Failed to delete old subscriber record")
+				return err
 			}
 		}
-	}
 
-	updatedSubscriber := &redis.SubscriberData{
-		SubscriberID:    existingSubscriber.SubscriberID,
-		IP:              framedIP,
-		IpVersion:       ipVersion,
-		SessionID:       sessionID,
-		LastUpdatedTime: currentTime,
-	}
+		// Create new record with new IP
+		newSubscriber := &redis.SubscriberData{
+			SubscriberID:    subscriberID,
+			IP:              framedIP,
+			IpVersion:       ipVersion,
+			SessionID:       sessionID,
+			LastUpdatedTime: currentTime,
+		}
 
-	return redis.CreateOrUpdateSubscriber(updatedSubscriber)
+		return redis.CreateOrUpdateSubscriber(newSubscriber)
+	}
 }

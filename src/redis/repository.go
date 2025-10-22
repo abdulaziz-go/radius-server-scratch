@@ -258,3 +258,72 @@ func CreateOrUpdateSubscriber(subscriber *SubscriberData) error {
 
 	return nil
 }
+
+func GetSubscriberBySubscriberID(subscriberID string) ([]*SubscriberData, error) {
+	if subscriberID == "" {
+		return nil, fmt.Errorf("subscriber ID cannot be empty")
+	}
+
+	query := fmt.Sprintf("@subscriber_id:{%s}", redisUtil.PrepareParam(subscriberID))
+	res, err := redisClient.Do(Ctx, "FT.SEARCH", config.SubscriberIndex, query).Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to search subscriber by subscriber ID: %w", err)
+	}
+	
+	resMap, ok := res.(map[interface{}]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected response type: %T", res)
+	}
+
+	totalResults, ok := resMap["total_results"].(int64)
+	if !ok || totalResults == 0 {
+		return nil, fmt.Errorf("subscriber not found for subscriber ID: %s", subscriberID)
+	}
+
+	results, ok := resMap["results"].([]interface{})
+	if !ok || len(results) == 0 {
+		return nil, fmt.Errorf("no results found for subscriber ID: %s", subscriberID)
+	}
+
+	var subscribers []*SubscriberData
+	for _, result := range results {
+		resultMap, ok := result.(map[interface{}]interface{})
+		if !ok {
+			continue
+		}
+
+		extraAttrs, ok := resultMap["extra_attributes"].(map[interface{}]interface{})
+		if !ok {
+			continue
+		}
+
+		fieldMap := make(map[string]string)
+		for k, v := range extraAttrs {
+			key := fmt.Sprintf("%v", k)
+			val := fmt.Sprintf("%v", v)
+			fieldMap[key] = val
+		}
+
+		subscriber := &SubscriberData{}
+		if id, ok := fieldMap["subscriber_id"]; ok {
+			subscriber.SubscriberID = id
+		}
+		if ip, ok := fieldMap["ip"]; ok {
+			subscriber.IP = ip
+		}
+		if sessID, ok := fieldMap["session_id"]; ok {
+			subscriber.SessionID = sessID
+		}
+		if lastUpdated, ok := fieldMap["last_updated_time"]; ok {
+			value, _ := numberUtil.ParseToInt64(lastUpdated)
+			subscriber.LastUpdatedTime = value
+		}
+		if ipVersion, ok := fieldMap["ip_version"]; ok {
+			subscriber.IpVersion = ipVersion
+		}
+
+		subscribers = append(subscribers, subscriber)
+	}
+
+	return subscribers, nil
+}
