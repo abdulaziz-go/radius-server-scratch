@@ -4,6 +4,7 @@ import (
 	"net"
 	"radius-server/src/common/logger"
 	"radius-server/src/redis"
+	"radius-server/src/utils/ip"
 	"time"
 
 	"layeh.com/radius"
@@ -74,6 +75,7 @@ func handleAccountingStart(sessionID, subscriberID, username, nasIP, framedIP st
 	subscriber := &redis.SubscriberData{
 		SubscriberID:    subscriberID,
 		IP:              framedIP,
+		IpVersion:       ip.DetectIPVersion(framedIP),
 		SessionID:       sessionID,
 		LastUpdatedTime: currentTime,
 	}
@@ -95,6 +97,7 @@ func handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, fra
 		subscriber := &redis.SubscriberData{
 			SubscriberID:    subscriberID,
 			IP:              framedIP,
+			IpVersion:       ip.DetectIPVersion(framedIP),
 			SessionID:       sessionID,
 			LastUpdatedTime: currentTime,
 		}
@@ -126,6 +129,7 @@ func handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, fra
 	updatedSubscriber := &redis.SubscriberData{
 		SubscriberID:    existingSubscriber.SubscriberID,
 		IP:              framedIP,
+		IpVersion:       ip.DetectIPVersion(framedIP),
 		SessionID:       sessionID,
 		LastUpdatedTime: currentTime,
 	}

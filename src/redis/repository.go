@@ -108,6 +108,7 @@ func HSetNasClient(nas *entities.RadiusNas) error {
 type SubscriberData struct {
 	SubscriberID    string `json:"subscriber_id"`
 	IP              string `json:"ip"`
+	IpVersion       string `json:"ip_version"`
 	SessionID       string `json:"session_id"`
 	LastUpdatedTime int64  `json:"last_updated_time"`
 }
@@ -199,6 +200,9 @@ func GetSubscriberByIP(ip string) (*SubscriberData, error) {
 		value, _ := numberUtil.ParseToInt64(lastUpdated)
 		subscriber.LastUpdatedTime = value
 	}
+	if ipVersion, ok := fieldMap["ip_version"]; ok {
+		subscriber.IpVersion = ipVersion
+	}
 
 	return subscriber, nil
 }
@@ -262,6 +266,9 @@ func GetSubscriberBySessionID(sessionID string) ([]*SubscriberData, error) {
 			value, _ := numberUtil.ParseToInt64(lastUpdated)
 			subscriber.LastUpdatedTime = value
 		}
+		if ipVersion, ok := fieldMap["ip_version"]; ok {
+			subscriber.IpVersion = ipVersion
+		}
 
 		subscribers = append(subscribers, subscriber)
 	}
@@ -282,6 +289,7 @@ func CreateOrUpdateSubscriber(subscriber *SubscriberData) error {
 	subscriberFields := map[string]interface{}{
 		"subscriber_id":     subscriber.SubscriberID,
 		"ip":                subscriber.IP,
+		"ip_version":        subscriber.IpVersion,
 		"session_id":        subscriber.SessionID,
 		"last_updated_time": subscriber.LastUpdatedTime,
 	}

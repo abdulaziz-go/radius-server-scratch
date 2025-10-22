@@ -13,6 +13,7 @@ create_subscriber_index() {
   redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" FT.CREATE "$INDEX_NAME_SUBS" ON HASH PREFIX 1 "subscriber:" SCHEMA \
     subscriber_id NUMERIC SORTABLE \
     ip TEXT \
+    ip_version TAG \
     session_id TEXT \
     last_updated_time NUMERIC SORTABLE
 }
