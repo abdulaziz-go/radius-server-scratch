@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"radius-server/src/config"
 	"radius-server/src/database/entities"
-	numberUtil "radius-server/src/utils/number"
 	redisUtil "radius-server/src/utils/redis"
 )
 
@@ -16,53 +15,13 @@ func GetNASByIP(ip string) (*entities.RadiusNas, error) {
 		return nil, fmt.Errorf("redis search failed: %w", err)
 	}
 
-	resMap, ok := res.(map[interface{}]interface{})
-	if !ok {
-		return nil, fmt.Errorf("unexpected response type: %T", res)
-	}
-
-	totalResults, ok := resMap["total_results"].(int64)
-	if !ok || totalResults == 0 {
-		return nil, fmt.Errorf("record not found for IP: %s", ip)
-	}
-
-	results, ok := resMap["results"].([]interface{})
-	if !ok || len(results) == 0 {
-		return nil, fmt.Errorf("no results found for IP: %s", ip)
-	}
-
-	firstResult, ok := results[0].(map[interface{}]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid result format")
-	}
-
-	extraAttrs, ok := firstResult["extra_attributes"].(map[interface{}]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid extra_attributes format")
-	}
-
-	fieldMap := make(map[string]string)
-	for k, v := range extraAttrs {
-		key := fmt.Sprintf("%v", k)
-		val := fmt.Sprintf("%v", v)
-		fieldMap[key] = val
+	fieldMap, err := redisUtil.ParseSingleRedisSearchResult(res)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse search result for IP %s: %w", ip, err)
 	}
 
 	nas := &entities.RadiusNas{}
-	if id, ok := fieldMap["id"]; ok {
-		value, _ := numberUtil.ParseToInt64(id)
-		nas.Id = value
-	}
-	if name, ok := fieldMap["nas_name"]; ok {
-		nas.NasName = &name
-	}
-	if ipAddr, ok := fieldMap["ip_address"]; ok {
-		nas.IpAddress = ipAddr
-	}
-	if secret, ok := fieldMap["secret"]; ok {
-		nas.Secret = secret
-	}
-
+	nas = nas.NewRadiusNasFromFieldMap(fieldMap)
 	return nas, nil
 }
 
@@ -76,42 +35,13 @@ func HSetNasClient(nas *entities.RadiusNas) error {
 	}
 
 	key := fmt.Sprintf("%v:%v", config.NasHashTableName, nas.Id)
-
-	fields := map[string]interface{}{
-		"id":         nas.Id,
-		"ip_address": nas.IpAddress,
-		"secret":     nas.Secret,
-	}
-
-	if nas.NasName != nil {
-		fields["nas_name"] = *nas.NasName
-	}
-	if nas.SubscriberId != nil {
-		fields["subscriber_id"] = *nas.SubscriberId
-	}
-	if nas.SessionId != nil {
-		fields["session_id"] = *nas.SessionId
-	}
-	if nas.CreatedAt != 0 {
-		fields["created_at"] = nas.CreatedAt
-	}
-	if nas.UpdatedAt != 0 {
-		fields["updated_at"] = nas.UpdatedAt
-	}
+	fields := nas.ToFieldsMap()
 
 	if err := redisClient.HSet(Ctx, key, fields).Err(); err != nil {
 		return fmt.Errorf("failed to set NAS client in Redis: %w", err)
 	}
 
 	return nil
-}
-
-type SubscriberData struct {
-	SubscriberID    string `json:"subscriber_id"`
-	IP              string `json:"ip"`
-	IpVersion       string `json:"ip_version"`
-	SessionID       string `json:"session_id"`
-	LastUpdatedTime int64  `json:"last_updated_time"`
 }
 
 func DeleteSubscriberByIP(ip string) error {
@@ -128,7 +58,7 @@ func DeleteSubscriberByIP(ip string) error {
 	return nil
 }
 
-func GetSubscriberByIP(ip string) (*SubscriberData, error) {
+func GetSubscriberByIP(ip string) (*entities.SubscriberData, error) {
 	if ip == "" {
 		return nil, fmt.Errorf("IP address cannot be empty")
 	}
@@ -144,28 +74,13 @@ func GetSubscriberByIP(ip string) (*SubscriberData, error) {
 		return nil, fmt.Errorf("subscriber not found for IP: %s", ip)
 	}
 
-	subscriber := &SubscriberData{}
-	if id, ok := fieldMap["subscriber_id"]; ok {
-		subscriber.SubscriberID = id
-	}
-	if ipAddr, ok := fieldMap["ip"]; ok {
-		subscriber.IP = ipAddr
-	}
-	if sessionID, ok := fieldMap["session_id"]; ok {
-		subscriber.SessionID = sessionID
-	}
-	if lastUpdated, ok := fieldMap["last_updated_time"]; ok {
-		value, _ := numberUtil.ParseToInt64(lastUpdated)
-		subscriber.LastUpdatedTime = value
-	}
-	if ipVersion, ok := fieldMap["ip_version"]; ok {
-		subscriber.IpVersion = ipVersion
-	}
+	subscriber := &entities.SubscriberData{}
+	subscriber = subscriber.NewSubscriberDataFromFieldMap(fieldMap)
 
 	return subscriber, nil
 }
 
-func GetSubscriberBySessionID(sessionID string) ([]*SubscriberData, error) {
+func GetSubscriberBySessionID(sessionID string) ([]*entities.SubscriberData, error) {
 	if sessionID == "" {
 		return nil, fmt.Errorf("session ID cannot be empty")
 	}
@@ -176,65 +91,26 @@ func GetSubscriberBySessionID(sessionID string) ([]*SubscriberData, error) {
 		return nil, fmt.Errorf("failed to search subscriber by session ID: %w", err)
 	}
 
-	resMap, ok := res.(map[interface{}]interface{})
-	if !ok {
-		return nil, fmt.Errorf("unexpected response type: %T", res)
+	results, err := redisUtil.ParseRedisSearchResponse(res)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse search results for session ID %s: %w", sessionID, err)
 	}
 
-	totalResults, ok := resMap["total_results"].(int64)
-	if !ok || totalResults == 0 {
+	if len(results) == 0 {
 		return nil, fmt.Errorf("subscriber not found for session ID: %s", sessionID)
 	}
 
-	results, ok := resMap["results"].([]interface{})
-	if !ok || len(results) == 0 {
-		return nil, fmt.Errorf("no results found for session ID: %s", sessionID)
-	}
-
-	var subscribers []*SubscriberData
-	for _, result := range results {
-		resultMap, ok := result.(map[interface{}]interface{})
-		if !ok {
-			continue
-		}
-
-		extraAttrs, ok := resultMap["extra_attributes"].(map[interface{}]interface{})
-		if !ok {
-			continue
-		}
-
-		fieldMap := make(map[string]string)
-		for k, v := range extraAttrs {
-			key := fmt.Sprintf("%v", k)
-			val := fmt.Sprintf("%v", v)
-			fieldMap[key] = val
-		}
-
-		subscriber := &SubscriberData{}
-		if id, ok := fieldMap["subscriber_id"]; ok {
-			subscriber.SubscriberID = id
-		}
-		if ip, ok := fieldMap["ip"]; ok {
-			subscriber.IP = ip
-		}
-		if sessID, ok := fieldMap["session_id"]; ok {
-			subscriber.SessionID = sessID
-		}
-		if lastUpdated, ok := fieldMap["last_updated_time"]; ok {
-			value, _ := numberUtil.ParseToInt64(lastUpdated)
-			subscriber.LastUpdatedTime = value
-		}
-		if ipVersion, ok := fieldMap["ip_version"]; ok {
-			subscriber.IpVersion = ipVersion
-		}
-
+	var subscribers []*entities.SubscriberData
+	for _, fieldMap := range results {
+		subscriber := &entities.SubscriberData{}
+		subscriber = subscriber.NewSubscriberDataFromFieldMap(fieldMap)
 		subscribers = append(subscribers, subscriber)
 	}
 
 	return subscribers, nil
 }
 
-func CreateOrUpdateSubscriber(subscriber *SubscriberData) error {
+func CreateOrUpdateSubscriber(subscriber *entities.SubscriberData) error {
 	if subscriber == nil {
 		return fmt.Errorf("subscriber data cannot be nil")
 	}
@@ -244,13 +120,7 @@ func CreateOrUpdateSubscriber(subscriber *SubscriberData) error {
 	}
 
 	subscriberKey := fmt.Sprintf("%s:%s", config.SubscriberHashTableName, subscriber.IP)
-	subscriberFields := map[string]interface{}{
-		"subscriber_id":     subscriber.SubscriberID,
-		"ip":                subscriber.IP,
-		"ip_version":        subscriber.IpVersion,
-		"session_id":        subscriber.SessionID,
-		"last_updated_time": subscriber.LastUpdatedTime,
-	}
+	subscriberFields := subscriber.ToFieldsMap()
 
 	if err := redisClient.HSet(Ctx, subscriberKey, subscriberFields).Err(); err != nil {
 		return fmt.Errorf("failed to set subscriber hash: %w", err)
@@ -259,7 +129,7 @@ func CreateOrUpdateSubscriber(subscriber *SubscriberData) error {
 	return nil
 }
 
-func GetSubscriberBySubscriberID(subscriberID string) ([]*SubscriberData, error) {
+func GetSubscriberBySubscriberID(subscriberID string) ([]*entities.SubscriberData, error) {
 	if subscriberID == "" {
 		return nil, fmt.Errorf("subscriber ID cannot be empty")
 	}
@@ -269,59 +139,20 @@ func GetSubscriberBySubscriberID(subscriberID string) ([]*SubscriberData, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search subscriber by subscriber ID: %w", err)
 	}
-	
-	resMap, ok := res.(map[interface{}]interface{})
-	if !ok {
-		return nil, fmt.Errorf("unexpected response type: %T", res)
+
+	results, err := redisUtil.ParseRedisSearchResponse(res)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse search results for subscriber ID %s: %w", subscriberID, err)
 	}
 
-	totalResults, ok := resMap["total_results"].(int64)
-	if !ok || totalResults == 0 {
+	if len(results) == 0 {
 		return nil, fmt.Errorf("subscriber not found for subscriber ID: %s", subscriberID)
 	}
 
-	results, ok := resMap["results"].([]interface{})
-	if !ok || len(results) == 0 {
-		return nil, fmt.Errorf("no results found for subscriber ID: %s", subscriberID)
-	}
-
-	var subscribers []*SubscriberData
-	for _, result := range results {
-		resultMap, ok := result.(map[interface{}]interface{})
-		if !ok {
-			continue
-		}
-
-		extraAttrs, ok := resultMap["extra_attributes"].(map[interface{}]interface{})
-		if !ok {
-			continue
-		}
-
-		fieldMap := make(map[string]string)
-		for k, v := range extraAttrs {
-			key := fmt.Sprintf("%v", k)
-			val := fmt.Sprintf("%v", v)
-			fieldMap[key] = val
-		}
-
-		subscriber := &SubscriberData{}
-		if id, ok := fieldMap["subscriber_id"]; ok {
-			subscriber.SubscriberID = id
-		}
-		if ip, ok := fieldMap["ip"]; ok {
-			subscriber.IP = ip
-		}
-		if sessID, ok := fieldMap["session_id"]; ok {
-			subscriber.SessionID = sessID
-		}
-		if lastUpdated, ok := fieldMap["last_updated_time"]; ok {
-			value, _ := numberUtil.ParseToInt64(lastUpdated)
-			subscriber.LastUpdatedTime = value
-		}
-		if ipVersion, ok := fieldMap["ip_version"]; ok {
-			subscriber.IpVersion = ipVersion
-		}
-
+	var subscribers []*entities.SubscriberData
+	for _, fieldMap := range results {
+		subscriber := &entities.SubscriberData{}
+		subscriber = subscriber.NewSubscriberDataFromFieldMap(fieldMap)
 		subscribers = append(subscribers, subscriber)
 	}
 

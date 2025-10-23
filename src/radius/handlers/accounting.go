@@ -5,6 +5,7 @@ import (
 	"net"
 	"radius-server/src/common/logger"
 	"radius-server/src/config"
+	"radius-server/src/database/entities"
 	"radius-server/src/redis"
 	"time"
 
@@ -100,7 +101,7 @@ func handleAccountingStart(sessionID, subscriberID, username, nasIP, framedIP, i
 		Str("subscriber_id", subscriberID).
 		Msg("Number of existing subscribers found")
 
-	subscriber := &redis.SubscriberData{
+	subscriber := &entities.SubscriberData{
 		SubscriberID:    subscriberID,
 		IP:              framedIP,
 		IpVersion:       ipVersion,
@@ -134,7 +135,7 @@ func handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, fra
 		// Subscriber ID doesn't exist, create new record
 		logger.Logger.Info().Str("subscriber_id", subscriberID).Msg("Subscriber not found, creating new subscriber")
 
-		subscriber := &redis.SubscriberData{
+		subscriber := &entities.SubscriberData{
 			SubscriberID:    subscriberID,
 			IP:              framedIP,
 			IpVersion:       ipVersion,
@@ -146,7 +147,7 @@ func handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, fra
 	}
 
 	// Subscriber ID exists, check if IP address matches
-	var matchingSubscriber *redis.SubscriberData
+	var matchingSubscriber *entities.SubscriberData
 	for _, sub := range existingSubscribers {
 		if sub.IP == framedIP {
 			matchingSubscriber = sub
@@ -158,7 +159,7 @@ func handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, fra
 		// IP matches, update record timestamp
 		logger.Logger.Info().Str("subscriber_id", subscriberID).Str("ip", framedIP).Msg("IP matches, updating timestamp")
 
-		updatedSubscriber := &redis.SubscriberData{
+		updatedSubscriber := &entities.SubscriberData{
 			SubscriberID:    matchingSubscriber.SubscriberID,
 			IP:              framedIP,
 			IpVersion:       ipVersion,
@@ -180,7 +181,7 @@ func handleAccountingInterimUpdate(sessionID, subscriberID, username, nasIP, fra
 		}
 
 		// Create new record with new IP
-		newSubscriber := &redis.SubscriberData{
+		newSubscriber := &entities.SubscriberData{
 			SubscriberID:    subscriberID,
 			IP:              framedIP,
 			IpVersion:       ipVersion,

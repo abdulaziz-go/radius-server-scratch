@@ -22,8 +22,9 @@ var (
 
 func initTestRedis(t *testing.T) *redis.Client {
 	client := redis.NewClient(&redis.Options{
-		Addr: testRedisAddr,
-		DB:   testRedisDB,
+		Addr:     testRedisAddr,
+		DB:       testRedisDB,
+		Protocol: 2,
 	})
 	err := client.Ping(testCtx).Err()
 	require.NoError(t, err, "Redis must be running locally for tests")
@@ -86,7 +87,7 @@ func TestSubscriberOperations(t *testing.T) {
 		require.NoError(t, err, "Failed to create subscriber RediSearch index")
 	}
 
-	subscriber := &SubscriberData{
+	subscriber := &entities.SubscriberData{
 		SubscriberID:    "12345",
 		IP:              "192.168.1.100",
 		SessionID:       "session-abc-123",
@@ -128,7 +129,7 @@ func TestSubscriberOperations(t *testing.T) {
 	})
 
 	t.Run("Update subscriber", func(t *testing.T) {
-		updatedSubscriber := &SubscriberData{
+		updatedSubscriber := &entities.SubscriberData{
 			SubscriberID:    "12345",
 			IP:              "192.168.1.200",
 			SessionID:       "session-abc-123",
@@ -153,14 +154,14 @@ func TestSubscriberOperations(t *testing.T) {
 	})
 
 	t.Run("Get subscriber by subscriber ID", func(t *testing.T) {
-		subscriber1 := &SubscriberData{
+		subscriber1 := &entities.SubscriberData{
 			SubscriberID:    "test_subscriber_123",
 			IP:              "192.168.1.201",
 			IpVersion:       "4",
 			SessionID:       "session_test_123_ipv4",
 			LastUpdatedTime: 1634567950,
 		}
-		subscriber2 := &SubscriberData{
+		subscriber2 := &entities.SubscriberData{
 			SubscriberID:    "test_subscriber_123",
 			IP:              "2001:db8::201",
 			IpVersion:       "6",
@@ -203,7 +204,7 @@ func TestSubscriberOperations(t *testing.T) {
 	})
 
 	t.Run("Delete subscriber by session ID", func(t *testing.T) {
-		newSubscriber := &SubscriberData{
+		newSubscriber := &entities.SubscriberData{
 			SubscriberID:    "54321",
 			IP:              "192.168.1.150",
 			SessionID:       "start_session_1729600000_0",
